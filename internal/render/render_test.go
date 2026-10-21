@@ -7,6 +7,7 @@ import (
 	"strings"
 	"testing"
 
+	"github.com/Infraedgecloud-tools/edgemap/internal/filter"
 	"github.com/Infraedgecloud-tools/edgemap/internal/graph"
 	"github.com/Infraedgecloud-tools/edgemap/internal/parse"
 )
@@ -18,6 +19,7 @@ func TestGolden(t *testing.T) {
 			if err != nil {
 				t.Fatal(err)
 			}
+			g = filter.Apply(g, filter.Options{})
 			got, err := Emit(g, Options{Title: "Terraform architecture"})
 			if err != nil {
 				t.Fatal(err)

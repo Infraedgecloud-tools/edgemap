@@ -32,6 +32,9 @@ edgemap version
 | `--format` | `svg` | `svg` (plus D2 sidecar) or `d2` only |
 | `--layout` | `elk` | `elk` or `dagre` |
 | `--no-icons` | false | Completely disable icon fetching |
+| `--show-iam` | false | Draw IAM resources instead of badges |
+| `--show-data` | false | Draw data sources |
+| `--show-sg` | false | Draw security groups and rules instead of badges |
 | `--title` | Terraform architecture | Diagram heading |
 
 ## How it decides what to draw
@@ -49,6 +52,8 @@ IAM, S3, Route53 and CloudFront go in `Global`.
 Arrows point **from the consumer to its dependency**. Repeated references are
 bundled and counted. Nesting replaces child-to-parent edges. Provider blocks,
 variables, locals, outputs and Terraform backend configuration are never drawn.
+IAM and security groups are hidden by default and summarized as badges on their
+consumers. Data sources are hidden. Use the `--show-*` flags to reveal them.
 
 Local modules and already-installed modules are expanded. Other modules remain
 collapsed. The standard AWS VPC module has synthetic public/private tiers so
