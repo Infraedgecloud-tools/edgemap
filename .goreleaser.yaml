@@ -1,5 +1,8 @@
 version: 2
 project_name: edgemap
+before:
+  hooks:
+    - bash scripts/licenses.sh
 builds:
   - main: ./cmd/edgemap
     binary: edgemap
@@ -15,6 +18,25 @@ archives:
     format_overrides:
       - goos: windows
         formats: [zip]
-    files: [LICENSE, README.md]
+    files: [LICENSE, README.md, THIRD_PARTY_LICENSES/**/*]
 checksum:
   name_template: checksums.txt
+
+release:
+  prerelease: auto
+homebrew_casks:
+  - name: edgemap
+    repository:
+      owner: Infraedgecloud-tools
+      name: homebrew-tap
+      token: '{{ .Env.TAP_TOKEN }}'
+    directory: Casks
+    homepage: https://github.com/Infraedgecloud-tools/edgemap
+    description: Static Terraform architecture diagrams without cloud credentials
+    skip_upload: false
+    hooks:
+      post:
+        install: |
+          if OS.mac?
+            system_command "/usr/bin/xattr", args: ["-dr", "com.apple.quarantine", "#{staged_path}/edgemap"]
+          end
