@@ -28,6 +28,7 @@ edgemap version
 
 | Flag | Default | Purpose |
 | --- | --- | --- |
+| `--plan` | unset | Local JSON plan for counts and change colours |
 | `--out` | `diagram.svg` | Output path; extension must match format |
 | `--format` | `svg` | `svg` (plus D2 sidecar) or `d2` only |
 | `--layout` | `elk` | `elk` or `dagre` |
@@ -58,6 +59,19 @@ consumers. Data sources are hidden. Use the `--show-*` flags to reveal them.
 Local modules and already-installed modules are expanded. Other modules remain
 collapsed. The standard AWS VPC module has synthetic public/private tiers so
 its subnet outputs can place callers without downloading the module.
+
+## Plan overlays
+
+Use `--plan /path/to/plan.json` with JSON from `terraform show -json`. Only
+resource addresses, types and action lists are retained; before/after values
+are skipped. Plans stay local and must never be committed or uploaded.
+
+Instance keys collapse onto their configuration node. Badges show the count
+after the plan and per-action totals; replacements count as both create and
+destroy. Red (destroy) takes priority over amber (change), then green (create).
+Resources absent from configuration appear under `Plan-only · placement unknown`.
+Counts for unexpanded modules describe aggregate plan resources. Forget actions
+use grey and explicitly say that infrastructure remains.
 
 ## Limits and network behaviour
 
