@@ -1,6 +1,7 @@
 package main
 
 import (
+	"bytes"
 	"fmt"
 	"os"
 	"path/filepath"
@@ -9,12 +10,14 @@ import (
 	"github.com/Infraedgecloud-tools/edgemap/internal/filter"
 	"github.com/Infraedgecloud-tools/edgemap/internal/graph"
 	"github.com/Infraedgecloud-tools/edgemap/internal/parse"
+	"github.com/Infraedgecloud-tools/edgemap/internal/plan"
 	"github.com/Infraedgecloud-tools/edgemap/internal/render"
+	"github.com/Infraedgecloud-tools/edgemap/internal/source"
 	"github.com/spf13/cobra"
 )
 
 func renderCommand() *cobra.Command {
-	var out, format, layout, title string
+	var out, format, layout, title, planPath string
 	var noIcons bool
 	var filters filter.Options
 	cmd := &cobra.Command{Use: "render [dir]", Short: "Render static Terraform architecture", Args: cobra.MaximumNArgs(1), RunE: func(cmd *cobra.Command, args []string) error {
@@ -38,8 +41,23 @@ func renderCommand() *cobra.Command {
 		if err != nil {
 			return err
 		}
-		g = filter.Apply(g, filters)
 		options := render.Options{Title: title}
+		if planPath != "" {
+			data, err := source.ReadRegularFile(planPath)
+			if err != nil {
+				return fmt.Errorf("read plan: %w", err)
+			}
+			changes, err := plan.Read(bytes.NewReader(data))
+			if err != nil {
+				return err
+			}
+			options.Colors, err = plan.Apply(g, changes)
+			if err != nil {
+				return err
+			}
+			options.Legend = plan.Legend
+		}
+		g = filter.Apply(g, filters)
 		var warnings []string
 		if !noIcons {
 			options.Icons, warnings = render.Icons(cmd.Context(), g)
@@ -80,6 +98,7 @@ func renderCommand() *cobra.Command {
 		return nil
 	}}
 	flags := cmd.Flags()
+	flags.StringVar(&planPath, "plan", "", "Local terraform show -json plan (never uploaded)")
 	flags.StringVar(&out, "out", "", "Output path (default diagram.svg or diagram.d2)")
 	flags.StringVar(&format, "format", "svg", "Output format: svg or d2")
 	flags.StringVar(&layout, "layout", "elk", "Layout engine: elk or dagre")
