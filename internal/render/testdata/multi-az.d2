@@ -1,0 +1,98 @@
+direction: down
+title: "Terraform architecture" { shape: text; near: top-center }
+n6554922d53280bca.nd727340b00ba37c7.n256e8e72a51b42c6: "mixed\naws_autoscaling_group" {
+  style.border-radius: 8
+  style.fill: "#FFFFFF"
+  style.font-size: 16
+}
+n6554922d53280bca.nd727340b00ba37c7.n3d6bcf67cfebe7bf.n48b35033c5b98969: "data\naws_db_instance" {
+  style.border-radius: 8
+  style.fill: "#FFFFFF"
+  style.font-size: 16
+}
+n6554922d53280bca.nd727340b00ba37c7.n3d6bcf67cfebe7bf.n18b4d97ecdb36798: "data\naws_db_subnet_group" {
+  style.border-radius: 8
+  style.fill: "#FFFFFF"
+  style.font-size: 16
+}
+n6554922d53280bca.nd727340b00ba37c7.n24cc6666c26c5be7: "app\naws_internet_gateway" {
+  style.border-radius: 8
+  style.fill: "#FFFFFF"
+  style.font-size: 16
+}
+n6554922d53280bca.nd727340b00ba37c7.nd3af72afadfe93d2.n5fb9f9030d2f9766: "web\naws_lb" {
+  style.border-radius: 8
+  style.fill: "#FFFFFF"
+  style.font-size: 16
+}
+n6554922d53280bca.nd727340b00ba37c7.na0e1a2f39b272aa4: "public\naws_route_table" {
+  style.border-radius: 8
+  style.fill: "#FFFFFF"
+  style.font-size: 16
+}
+n6554922d53280bca.nd727340b00ba37c7.nd3af72afadfe93d2.nb2610a956ace64c5: "public_b\naws_route_table_association" {
+  style.border-radius: 8
+  style.fill: "#FFFFFF"
+  style.font-size: 16
+}
+n6554922d53280bca.nd727340b00ba37c7.n3d6bcf67cfebe7bf.n261872bc18fc486d: "private_a\naws_subnet" {
+  style.border-radius: 8
+  style.fill: "#FFFFFF"
+  style.font-size: 16
+}
+n6554922d53280bca.nd727340b00ba37c7.n3d6bcf67cfebe7bf.n86d5f2f5ccda55ac: "private_b\naws_subnet" {
+  style.border-radius: 8
+  style.fill: "#FFFFFF"
+  style.font-size: 16
+}
+n6554922d53280bca.nd727340b00ba37c7.nd3af72afadfe93d2.nb1dff032dab114d7: "public_a\naws_subnet" {
+  style.border-radius: 8
+  style.fill: "#FFFFFF"
+  style.font-size: 16
+}
+n6554922d53280bca.nd727340b00ba37c7.nd3af72afadfe93d2.n981a8048da6b928d: "public_b\naws_subnet" {
+  style.border-radius: 8
+  style.fill: "#FFFFFF"
+  style.font-size: 16
+}
+n6554922d53280bca.nd727340b00ba37c7: "VPC · app" {
+  style.fill: "#F3F6FA"
+  style.stroke: "#8B9BB1"
+  style.font-size: 20
+}
+n6554922d53280bca.nd727340b00ba37c7.n3d6bcf67cfebe7bf: "private" {
+  style.fill: "#F3F6FA"
+  style.stroke: "#8B9BB1"
+  style.font-size: 20
+}
+n6554922d53280bca.nd727340b00ba37c7.nd3af72afadfe93d2: "public" {
+  style.fill: "#F3F6FA"
+  style.stroke: "#8B9BB1"
+  style.font-size: 20
+}
+n945674f01ebd73f1.n5044658be152c4a2: "VPC · dr" {
+  style.fill: "#F3F6FA"
+  style.stroke: "#8B9BB1"
+  style.font-size: 20
+}
+n945674f01ebd73f1: "eu-west-1" {
+  style.fill: "#F3F6FA"
+  style.stroke: "#8B9BB1"
+  style.font-size: 20
+}
+n6554922d53280bca: "eu-west-2" {
+  style.fill: "#F3F6FA"
+  style.stroke: "#8B9BB1"
+  style.font-size: 20
+}
+n6554922d53280bca.nd727340b00ba37c7.n256e8e72a51b42c6 -> n6554922d53280bca.nd727340b00ba37c7.n3d6bcf67cfebe7bf.n261872bc18fc486d
+n6554922d53280bca.nd727340b00ba37c7.n256e8e72a51b42c6 -> n6554922d53280bca.nd727340b00ba37c7.nd3af72afadfe93d2.nb1dff032dab114d7
+n6554922d53280bca.nd727340b00ba37c7.n3d6bcf67cfebe7bf.n48b35033c5b98969 -> n6554922d53280bca.nd727340b00ba37c7.n3d6bcf67cfebe7bf.n18b4d97ecdb36798
+n6554922d53280bca.nd727340b00ba37c7.n3d6bcf67cfebe7bf.n18b4d97ecdb36798 -> n6554922d53280bca.nd727340b00ba37c7.n3d6bcf67cfebe7bf.n261872bc18fc486d
+n6554922d53280bca.nd727340b00ba37c7.n3d6bcf67cfebe7bf.n18b4d97ecdb36798 -> n6554922d53280bca.nd727340b00ba37c7.n3d6bcf67cfebe7bf.n86d5f2f5ccda55ac
+n6554922d53280bca.nd727340b00ba37c7.nd3af72afadfe93d2.n5fb9f9030d2f9766 -> n6554922d53280bca.nd727340b00ba37c7.nd3af72afadfe93d2.nb1dff032dab114d7
+n6554922d53280bca.nd727340b00ba37c7.nd3af72afadfe93d2.n5fb9f9030d2f9766 -> n6554922d53280bca.nd727340b00ba37c7.nd3af72afadfe93d2.n981a8048da6b928d
+n6554922d53280bca.nd727340b00ba37c7.na0e1a2f39b272aa4 -> n6554922d53280bca.nd727340b00ba37c7.n24cc6666c26c5be7
+n6554922d53280bca.nd727340b00ba37c7.nd3af72afadfe93d2.nb2610a956ace64c5 -> n6554922d53280bca.nd727340b00ba37c7.na0e1a2f39b272aa4
+n6554922d53280bca.nd727340b00ba37c7.nd3af72afadfe93d2.nb2610a956ace64c5 -> n6554922d53280bca.nd727340b00ba37c7.nd3af72afadfe93d2.n981a8048da6b928d
+legend: "Arrows: consumer → dependency; nesting replaces child → parent edges." { shape: text; near: bottom-center }

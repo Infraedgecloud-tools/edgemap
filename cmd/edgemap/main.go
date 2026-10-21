@@ -22,6 +22,6 @@ func newCommand() *cobra.Command {
 		_, err := fmt.Fprintln(cmd.OutOrStdout(), version)
 		return err
 	}})
-	root.AddCommand(inspectCommand())
+	root.AddCommand(inspectCommand(), renderCommand())
 	return root
 }

@@ -1,0 +1,44 @@
+direction: down
+title: "Terraform architecture" { shape: text; near: top-center }
+n6554922d53280bca.ncc0ab768b6128ce2.n921993c0e82bb0b0.n48b35033c5b98969: "data\naws_db_instance" {
+  style.border-radius: 8
+  style.fill: "#FFFFFF"
+  style.font-size: 16
+}
+n6554922d53280bca.ncc0ab768b6128ce2.n921993c0e82bb0b0.n18b4d97ecdb36798: "data\naws_db_subnet_group" {
+  style.border-radius: 8
+  style.fill: "#FFFFFF"
+  style.font-size: 16
+}
+n6554922d53280bca.ncc0ab768b6128ce2.n83ec470095b4aeab.n5fb9f9030d2f9766: "web\naws_lb" {
+  style.border-radius: 8
+  style.fill: "#FFFFFF"
+  style.font-size: 16
+}
+n6554922d53280bca.ncc0ab768b6128ce2.nf4e14e106d7ef990: "app\naws_security_group" {
+  style.border-radius: 8
+  style.fill: "#FFFFFF"
+  style.font-size: 16
+}
+n6554922d53280bca.ncc0ab768b6128ce2: "VPC · vpc\nterraform-aws-modules/vpc/aws @ 5.21.0" {
+  style.fill: "#F3F6FA"
+  style.stroke: "#8B9BB1"
+  style.font-size: 20
+}
+n6554922d53280bca.ncc0ab768b6128ce2.n921993c0e82bb0b0: "private" {
+  style.fill: "#F3F6FA"
+  style.stroke: "#8B9BB1"
+  style.font-size: 20
+}
+n6554922d53280bca.ncc0ab768b6128ce2.n83ec470095b4aeab: "public" {
+  style.fill: "#F3F6FA"
+  style.stroke: "#8B9BB1"
+  style.font-size: 20
+}
+n6554922d53280bca: "eu-west-2" {
+  style.fill: "#F3F6FA"
+  style.stroke: "#8B9BB1"
+  style.font-size: 20
+}
+n6554922d53280bca.ncc0ab768b6128ce2.n921993c0e82bb0b0.n48b35033c5b98969 -> n6554922d53280bca.ncc0ab768b6128ce2.n921993c0e82bb0b0.n18b4d97ecdb36798
+legend: "Arrows: consumer → dependency; nesting replaces child → parent edges." { shape: text; near: bottom-center }

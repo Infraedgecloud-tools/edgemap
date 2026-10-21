@@ -1,20 +1,89 @@
 # edgemap
 
-A Terraform/OpenTofu architecture diagram CLI. Implementation is in progress;
-there is no published installable release yet.
+![Multi-AZ Terraform architecture](docs/examples/multi-az.svg)
 
-## Development
+Read Terraform/OpenTofu configuration and produce a grouped architecture diagram
+without cloud credentials, `terraform init`, or executing Terraform.
 
-Go 1.27.3:
+## Install from this checkout
+
+Requires Go 1.27.3. No release has been published yet.
 
 ```sh
-go run ./cmd/edgemap version
-go test ./...
+go install ./cmd/edgemap
+edgemap render ./testdata/multi-az
 ```
 
-Changes go through pull requests with Conventional Commits and passing CI.
-Do not commit Terraform plans, state, secrets or customer configuration.
+The default writes `diagram.svg` and editable `diagram.d2`. SVG icons are bundled
+into data URIs; a generated SVG can be viewed offline. D2 icon paths refer to the
+local cache; use `--no-icons` for a portable D2 file.
 
-Licensed under Apache-2.0. Third-party notices will accompany release archives.
+## Commands
+
+```sh
+edgemap render [dir]
+edgemap inspect [dir]
+edgemap version
+```
+
+| Flag | Default | Purpose |
+| --- | --- | --- |
+| `--out` | `diagram.svg` | Output path; extension must match format |
+| `--format` | `svg` | `svg` (plus D2 sidecar) or `d2` only |
+| `--layout` | `elk` | `elk` or `dagre` |
+| `--no-icons` | false | Completely disable icon fetching |
+| `--title` | Terraform architecture | Diagram heading |
+
+## How it decides what to draw
+
+AWS containment uses resource attributes: region → VPC → public/private/unknown
+subnet tier. Provider aliases supply regions. Nonliteral regions remain labelled
+as expressions; accounts are never inferred. A default route to an internet
+gateway, public-IP assignment, or a Name tag can identify a public subnet.
+Name tags identify private subnets; no evidence means `subnets`.
+
+ALBs, RDS, ASGs and Lambda functions referring to several subnets sit at their
+shared tier, or their VPC when tiers differ. Unknown AWS types go in `Other`;
+IAM, S3, Route53 and CloudFront go in `Global`.
+
+Arrows point **from the consumer to its dependency**. Repeated references are
+bundled and counted. Nesting replaces child-to-parent edges. Provider blocks,
+variables, locals, outputs and Terraform backend configuration are never drawn.
+
+Local modules and already-installed modules are expanded. Other modules remain
+collapsed. The standard AWS VPC module has synthetic public/private tiers so
+its subnet outputs can place callers without downloading the module.
+
+## Limits and network behaviour
+
+- Static approximation, not a Terraform evaluator or a deployed-resource inventory.
+- Conditions, variables, functions and `for_each` are not evaluated. Literal
+  locals can be resolved; unresolved multiplicity is `×?`.
+- Resource literals such as a hard-coded subnet ID cannot establish references.
+- Provider-specific semantic grouping is AWS only; the catalog is deliberately small.
+- Broken files produce warnings and partial results. `inspect` lists the warnings.
+- Symlinked and special-file inputs are skipped. Individual input files are limited
+  to 16 MiB, module nesting to 32 levels and parsed nodes to 10,000.
+- Default renders fetch a small fixed set of AWS icons from
+  `https://icons.terrastruct.com` and cache them under the user cache directory.
+  Fetch failures use plain shapes with a warning. `--no-icons` is offline.
+- No telemetry, cloud API calls, module downloads, or Terraform subprocesses.
+
+## Contributing
+
+Use pull requests and Conventional Commits. Run:
+
+```sh
+go test ./...
+go test ./internal/parse -run='^$' -fuzz=FuzzParse -fuzztime=30s
+golangci-lint run
+golangci-lint fmt --diff
+```
+
+Inspect changes before updating goldens with `UPDATE_GOLDEN=1 go test ./...`.
+Never commit Terraform plans, state, credentials or customer configuration.
+
+Apache-2.0. Dependencies retain their own licences; third-party notices accompany
+release archives. AWS icons are fetched separately and are not vendored here.
 
 Built and maintained by [InfraEdge](https://infraedge.org).
