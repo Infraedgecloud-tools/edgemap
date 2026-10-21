@@ -106,3 +106,30 @@ Apache-2.0. Dependencies retain their own licences; third-party notices accompan
 release archives. AWS icons are fetched separately and are not vendored here.
 
 Built and maintained by [InfraEdge](https://infraedge.org).
+
+## Release and Action setup
+
+Release workflows are prepared; publication and hosted smoke tests are pending.
+Once v0.1.0 is published, the intended Homebrew command is:
+
+```sh
+brew install Infraedgecloud-tools/tap/edgemap
+```
+
+The composite Action downloads an exact release and verifies its archive checksum.
+After publishing, use it following `actions/checkout`, with `contents: read`:
+
+```yaml
+- uses: Infraedgecloud-tools/edgemap@v0.1.0
+  with:
+    directory: ./infrastructure
+    version: v0.1.0
+    no-icons: 'true'
+```
+
+Pin the Action to the release commit SHA in production workflows. It uploads only
+the SVG and adds a download link to the job summary; it does not post PR comments
+or upload plans. GitHub artifact links are not inline SVG previews.
+
+See [architecture](docs/architecture.md), [source adapters](docs/adding-a-source.md)
+and [release gates](docs/releasing.md).
