@@ -5,7 +5,6 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
-	"io"
 	"os"
 	"path/filepath"
 	"sort"
@@ -15,6 +14,7 @@ import (
 	"github.com/hashicorp/hcl/v2"
 	"github.com/hashicorp/hcl/v2/hclparse"
 	"github.com/hashicorp/hcl/v2/hclsyntax"
+	"github.com/zclconf/go-cty/cty"
 	ctyjson "github.com/zclconf/go-cty/cty/json"
 )
 
@@ -47,7 +47,7 @@ func (Terraform) Load(ctx context.Context, dir string) (source.Result, error) {
 			continue
 		}
 		filename := filepath.Join(dir, entry.Name())
-		data, err := readInput(filename)
+		data, err := source.ReadRegularFile(filename)
 		if err != nil {
 			result.Warnings = append(result.Warnings, entry.Name()+": "+err.Error())
 			continue
@@ -84,6 +84,9 @@ func collect(file *hcl.File, result *source.Result) {
 				if key == "depends_on" || key == "provider" {
 					a = traversalAttribute(a)
 				}
+				if key == "providers" {
+					a.Bindings = providerBindings(attr.Expr)
+				}
 				item.Attributes[key] = a
 			}
 		}
@@ -93,7 +96,11 @@ func collect(file *hcl.File, result *source.Result) {
 
 func walk(body *hclsyntax.Body, prefix string, data []byte, attrs map[string]source.Attribute) {
 	for key, attr := range body.Attributes {
-		attrs[prefix+key] = attribute(attr.Expr, data)
+		a := attribute(attr.Expr, data)
+		if key == "providers" {
+			a.Bindings = providerBindings(attr.Expr)
+		}
+		attrs[prefix+key] = a
 	}
 	for i, block := range body.Blocks {
 		walk(block.Body, fmt.Sprintf("%s%s.%d.", prefix, block.Type, i), data, attrs)
@@ -180,36 +187,6 @@ func addDiagnostics(result *source.Result, diagnostics hcl.Diagnostics) {
 	}
 }
 
-// Reject symlinks and special files, then bound the opened regular-file read.
-// ParseHCL/ParseJSON are used instead of their unbounded File convenience APIs.
-func readInput(filename string) ([]byte, error) {
-	info, err := os.Lstat(filename)
-	if err != nil {
-		return nil, fmt.Errorf("cannot stat input")
-	}
-	if !info.Mode().IsRegular() {
-		return nil, fmt.Errorf("input must be a regular file (symlinks are skipped)")
-	}
-	f, err := os.Open(filename) // #nosec G304 -- user-selected configuration; regular-file checks and bounded read below.
-	if err != nil {
-		return nil, fmt.Errorf("cannot open input")
-	}
-	defer func() { _ = f.Close() }()
-	info, err = f.Stat()
-	if err != nil || !info.Mode().IsRegular() {
-		return nil, fmt.Errorf("input must be a regular file")
-	}
-	const limit = 16 << 20
-	data, err := io.ReadAll(io.LimitReader(f, limit+1))
-	if err != nil {
-		return nil, fmt.Errorf("cannot read input")
-	}
-	if len(data) > limit {
-		return nil, fmt.Errorf("exceeds 16 MiB input limit")
-	}
-	return data, nil
-}
-
 func traversalAttribute(attr source.Attribute) source.Attribute {
 	var values []string
 	if s, ok := attr.Value.(string); ok {
@@ -260,4 +237,51 @@ func jsonLiteral(value any) bool {
 		}
 	}
 	return true
+}
+
+func providerBindings(expr hcl.Expression) map[string]string {
+	result := map[string]string{}
+	pairs, diags := hcl.ExprMap(expr)
+	if diags.HasErrors() {
+		return result
+	}
+	for _, pair := range pairs {
+		keyName := ""
+		if tr, d := hcl.AbsTraversalForExpr(pair.Key); !d.HasErrors() {
+			var names []string
+			for _, part := range tr {
+				switch p := part.(type) {
+				case hcl.TraverseRoot:
+					names = append(names, p.Name)
+				case hcl.TraverseAttr:
+					names = append(names, p.Name)
+				}
+			}
+			keyName = strings.Join(names, ".")
+		} else if key, d := pair.Key.Value(nil); !d.HasErrors() && key.IsKnown() && !key.IsNull() && key.Type() == cty.String {
+			keyName = key.AsString()
+		}
+		if keyName == "" {
+			continue
+		}
+		refs := pair.Value.Variables()
+		if len(refs) == 1 {
+			var names []string
+			for _, part := range refs[0] {
+				switch p := part.(type) {
+				case hcl.TraverseRoot:
+					names = append(names, p.Name)
+				case hcl.TraverseAttr:
+					names = append(names, p.Name)
+				}
+			}
+			result[keyName] = strings.Join(names, ".")
+		} else {
+			value, d := pair.Value.Value(nil)
+			if !d.HasErrors() && value.IsKnown() && !value.IsNull() && value.Type() == cty.String {
+				result[keyName] = value.AsString()
+			}
+		}
+	}
+	return result
 }
