@@ -71,7 +71,11 @@ func TestIconValidation(t *testing.T) {
 		{`<svg><script>alert(1)</script></svg>`, false},
 		{`<svg><image href="https://example.com/tracker"/></svg>`, false},
 		{`<svg onload="alert(1)"/>`, false},
+		{`<svg style="fill:u\72l(https://example.com/x)"/>`, false},
 		{`<html>not an icon</html>`, false},
+		{`<svg><style>.x {fill:url(https://example.com/x)}</style></svg>`, false},
+		{`<svg><style>@import "https://example.com/x";</style></svg>`, false},
+		{`<svg><style>.x {fill:url(#gradient)}</style></svg>`, true},
 	} {
 		if validIcon([]byte(test.svg)) != test.valid {
 			t.Errorf("validation mismatch %s", test.svg)

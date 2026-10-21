@@ -10,6 +10,7 @@ import (
 	"net/http"
 	"os"
 	"path/filepath"
+	"regexp"
 	"strings"
 	"time"
 
@@ -104,6 +105,8 @@ func validIcon(data []byte) bool {
 	}
 	decoder := xml.NewDecoder(bytes.NewReader(data))
 	root := false
+	var style strings.Builder
+	inStyle := false
 	for {
 		token, err := decoder.Token()
 		if err == io.EOF {
@@ -112,8 +115,27 @@ func validIcon(data []byte) bool {
 		if err != nil {
 			return false
 		}
+		switch t := token.(type) {
+		case xml.Directive, xml.ProcInst:
+			return false
+		case xml.CharData:
+			if inStyle {
+				style.Write([]byte(t))
+			}
+		case xml.EndElement:
+			if strings.EqualFold(t.Name.Local, "style") {
+				if !safeCSS(style.String()) {
+					return false
+				}
+				inStyle = false
+			}
+		}
 		if element, ok := token.(xml.StartElement); ok {
 			name := strings.ToLower(element.Name.Local)
+			if name == "style" {
+				style.Reset()
+				inStyle = true
+			}
 			if !root {
 				if name != "svg" {
 					return false
@@ -126,10 +148,29 @@ func validIcon(data []byte) bool {
 			for _, attr := range element.Attr {
 				key := strings.ToLower(attr.Name.Local)
 				value := strings.TrimSpace(attr.Value)
-				if strings.HasPrefix(key, "on") || (key == "href" && !strings.HasPrefix(value, "#")) || strings.Contains(strings.ToLower(value), "url(") {
+				if (key == "style" && !safeCSS(value)) || strings.HasPrefix(key, "on") || (key == "href" && !strings.HasPrefix(value, "#")) || strings.Contains(strings.ToLower(value), "url(") {
 					return false
 				}
 			}
 		}
 	}
+}
+
+var (
+	cssURL      = regexp.MustCompile(`(?i)url\s*\([^)]*\)`)
+	fragmentURL = regexp.MustCompile(`(?i)^url\(\s*["']?#[a-z0-9_.:-]+["']?\s*\)$`)
+)
+
+func safeCSS(css string) bool {
+	// Escapes, imports and comments can disguise remote URLs. Catalog icons need
+	// only simple declarations and local gradient references.
+	if strings.ContainsAny(css, "@\\") || strings.Contains(css, "/*") {
+		return false
+	}
+	for _, url := range cssURL.FindAllString(css, -1) {
+		if !fragmentURL.MatchString(url) {
+			return false
+		}
+	}
+	return true
 }

@@ -105,7 +105,6 @@ Never commit Terraform plans, state, credentials or customer configuration.
 Apache-2.0. Dependencies retain their own licences; third-party notices accompany
 release archives. AWS icons are fetched separately and are not vendored here.
 
-Built and maintained by [InfraEdge](https://infraedge.org).
 
 ## Release and Action setup
 
@@ -133,3 +132,5 @@ or upload plans. GitHub artifact links are not inline SVG previews.
 
 See [architecture](docs/architecture.md), [source adapters](docs/adding-a-source.md)
 and [release gates](docs/releasing.md).
+
+Built and maintained by [InfraEdge](https://infraedge.org).

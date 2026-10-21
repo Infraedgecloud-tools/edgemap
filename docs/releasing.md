@@ -2,7 +2,7 @@
 
 ## Current status
 
-Only local snapshot build validation is available. Six target build directories exist for Linux, macOS and Windows on amd64/arm64, and `goreleaser check` accepts the current configuration. This is not a published release or proof of installation on those platforms.
+Local snapshot builds and archive packaging passed for Linux, macOS and Windows on amd64/arm64. Archive checksums and embedded licence notices were checked, and `goreleaser check` accepts the current configuration. This is not a published release or proof of installation on those platforms.
 
 Upstream writes returned HTTP 403 during this build session. PR publication/merging, `main` protection, the release-candidate tag, Homebrew smoke tests and the final release remain blocked. No release, tap installation or successful remote CI run should be inferred from the local files.
 
@@ -30,7 +30,7 @@ goreleaser build --snapshot --clean
 A snapshot build verifies binaries, not complete archives or tap installation. To exercise local archive/checksum generation without publishing:
 
 ```sh
-goreleaser release --snapshot --clean --skip=publish,homebrew
+goreleaser release --snapshot --clean --skip=publish,validate
 ```
 
 The configured `before` hook runs `scripts/licenses.sh`. It generates `THIRD_PARTY_LICENSES` with pinned `go-licenses`, then adds embedded font, layout and other notices the Go import scanner cannot discover. D2 0.9 uses the native Go ELK port; its EPL and additional notices are copied explicitly. Check that every archive includes this directory, `LICENSE`, `README.md` and the appropriate binary. Check archives against `dist/checksums.txt` and smoke-test a host-compatible binary. Cross-compilation alone does not validate runtime behavior on another OS/architecture.
@@ -39,11 +39,11 @@ The configured `before` hook runs `scripts/licenses.sh`. It generates `THIRD_PAR
 
 After reviewed changes reach protected, green `main`, tag that exact commit as `v0.1.0-rc.1` and push the tag. `.github/workflows/release.yml` runs on `v*` tags and invokes `goreleaser release --clean`; prerelease status is inferred from the tag.
 
-The configuration publishes a Homebrew cask into the tap's `Casks` directory. Its post-install quarantine removal hook runs only on macOS for these unsigned binaries. The dependent `brew-smoke` matrix runs on macOS and Linux and executes:
+The configuration publishes a Homebrew cask into the tap's `Casks` directory. Its post-install quarantine removal hook runs only on macOS for these unsigned binaries. The dependent `brew-smoke` matrix runs on macOS and Linux and executes (with `EXPECTED_VERSION` set to the triggering tag):
 
 ```sh
 brew install --cask Infraedgecloud-tools/tap/edgemap
-edgemap version
+test "$(edgemap version)" = "${EXPECTED_VERSION#v}"
 edgemap render testdata/multi-az --no-icons
 test -s diagram.svg
 ```

@@ -81,6 +81,9 @@ func collect(file *hcl.File, result *source.Result) {
 			addDiagnostics(result, diags)
 			for key, attr := range attrs {
 				a := attribute(attr.Expr, file.Bytes)
+				if (block.Type == "resource" || block.Type == "data") && flattenJSON(attr.Expr, key, file.Bytes, item.Attributes) {
+					a.References = nil // leaves retain references once, under nested attribute paths
+				}
 				if key == "depends_on" || key == "provider" {
 					a = traversalAttribute(a)
 				}
@@ -284,4 +287,38 @@ func providerBindings(expr hcl.Expression) map[string]string {
 		}
 	}
 	return result
+}
+
+// flattenJSON preserves nested block attribute names without requiring a provider schema.
+// Scalar lists remain intact so subnet_ids and similar attributes retain their traversals.
+func flattenJSON(expr hcl.Expression, prefix string, data []byte, attrs map[string]source.Attribute) bool {
+	pairs, diags := hcl.ExprMap(expr)
+	if !diags.HasErrors() {
+		for _, pair := range pairs {
+			key, d := pair.Key.Value(nil)
+			if d.HasErrors() || !key.IsKnown() || key.IsNull() || key.Type() != cty.String {
+				continue
+			}
+			name := prefix + "." + key.AsString()
+			a := attribute(pair.Value, data)
+			if flattenJSON(pair.Value, name, data, attrs) {
+				a.References = nil
+			}
+			attrs[name] = a
+		}
+		return true
+	}
+	items, diags := hcl.ExprList(expr)
+	if diags.HasErrors() || len(items) == 0 {
+		return false
+	}
+	for _, item := range items {
+		if _, d := hcl.ExprMap(item); d.HasErrors() {
+			return false
+		}
+	}
+	for i, item := range items {
+		flattenJSON(item, fmt.Sprintf("%s.%d", prefix, i), data, attrs)
+	}
+	return true
 }
