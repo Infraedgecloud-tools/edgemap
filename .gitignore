@@ -1,0 +1,11 @@
+/dist/
+/edgemap
+/edgemap.exe
+/diagram.svg
+/diagram.d2
+**/plan.json
+*.tfplan
+*.tfstate*
+.terraform/
+*.tfvars
+*.tfvars.json

@@ -1,21 +1,20 @@
 # edgemap
 
-Tooling from [InfraEdge](https://infraedgecloud.com) for mapping cloud and platform estates.
+A Terraform/OpenTofu architecture diagram CLI. Implementation is in progress;
+there is no published installable release yet.
 
-## Status
+## Development
 
-Early. This repository is being built up incrementally; expect the layout and
-tooling to change until a first release is tagged.
+Go 1.27.3:
 
-## Contributing
+```sh
+go run ./cmd/edgemap version
+go test ./...
+```
 
-- Work on `main` directly for now, or open a pull request if the change is
-  large enough to want a review.
-- Keep commits small and the message in the imperative
-  (`feat: add region scanner`, `fix: handle empty inventory`).
-- Never commit credentials, account IDs, or customer data. Configuration that
-  needs secrets should read them from the environment.
+Changes go through pull requests with Conventional Commits and passing CI.
+Do not commit Terraform plans, state, secrets or customer configuration.
 
-## License
+Licensed under Apache-2.0. Third-party notices will accompany release archives.
 
-To be decided before the first release.
+Built and maintained by [InfraEdge](https://infraedge.org).
