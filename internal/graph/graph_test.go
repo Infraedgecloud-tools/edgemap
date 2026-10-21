@@ -468,3 +468,54 @@ resource "aws_vpc" "replica" {
 		t.Fatalf("region %s", got)
 	}
 }
+
+func TestJSONNestedContainment(t *testing.T) {
+	dir := t.TempDir()
+	raw := `{"provider":{"aws":{"region":"eu-west-2"}},"resource":{
+ "aws_vpc":{"app":{}},
+ "aws_subnet":{"private":{"vpc_id":"${aws_vpc.app.id}","tags":{"Name":"private"}}},
+ "aws_lambda_function":{"app":{"vpc_config":[{"subnet_ids":["${aws_subnet.private.id}"]}]}},
+"aws_lb":{"app":{"subnet_mapping":[{"subnet_id":"${aws_subnet.private.id}"}]}}
+ }}`
+	if err := os.WriteFile(filepath.Join(dir, "main.tf.json"), []byte(raw), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	g, err := Build(context.Background(), parse.Terraform{}, dir)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if got := g.Nodes["aws_lambda_function.app"].Container; got != "aws_vpc.app.tier.private" {
+		t.Fatalf("Lambda placement %s", got)
+	}
+	if g.Nodes["aws_lb.app"].Container != "aws_vpc.app.tier.private" {
+		t.Fatal("JSON LB mapping lost")
+	}
+	for _, edge := range g.Edges {
+		if edge.From == "aws_lambda_function.app" && edge.Count != 1 {
+			t.Fatal("nested JSON references double counted")
+		}
+	}
+}
+
+func TestLBNestedSubnetMapping(t *testing.T) {
+	dir := t.TempDir()
+	raw := `provider "aws" {region="eu-west-2"}
+ resource "aws_vpc" "app" {}
+ resource "aws_subnet" "private" {
+ vpc_id=aws_vpc.app.id
+ tags={Name="private"}
+ }
+ resource "aws_lb" "app" {
+ subnet_mapping {subnet_id=aws_subnet.private.id}
+ }`
+	if err := os.WriteFile(filepath.Join(dir, "main.tf"), []byte(raw), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	g, err := Build(context.Background(), parse.Terraform{}, dir)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if g.Nodes["aws_lb.app"].Container != "aws_vpc.app.tier.private" {
+		t.Fatal("LB mapping lost")
+	}
+}
