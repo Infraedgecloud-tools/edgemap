@@ -1,0 +1,50 @@
+direction: down
+title: "Terraform architecture" { shape: text; near: top-center }
+naf66d06d22692885.nd727340b00ba37c7.n3d6bcf67cfebe7bf.n8e5302dc2cff7ef9: "fixed\naws_instance\n×3" {
+  style.border-radius: 8
+  style.fill: "#FFFFFF"
+  style.font-size: 16
+}
+naf66d06d22692885.nd727340b00ba37c7.n3d6bcf67cfebe7bf.n65e2216e6bd0ddd0: "workers\naws_instance\n×?" {
+  style.border-radius: 8
+  style.fill: "#FFFFFF"
+  style.font-size: 16
+}
+n8001c27439650c5c.nf1d8e039d842a6db: "archive\naws_s3_bucket" {
+  style.border-radius: 8
+  style.fill: "#FFFFFF"
+  style.font-size: 16
+}
+naf66d06d22692885.nd727340b00ba37c7.n3d6bcf67cfebe7bf.ne3c63999d709510a: "private\naws_subnet" {
+  style.border-radius: 8
+  style.fill: "#FFFFFF"
+  style.font-size: 16
+}
+naf66d06d22692885.nd727340b00ba37c7: "VPC · app" {
+  style.fill: "#F3F6FA"
+  style.stroke: "#8B9BB1"
+  style.font-size: 20
+}
+naf66d06d22692885.nd727340b00ba37c7.n3d6bcf67cfebe7bf: "private" {
+  style.fill: "#F3F6FA"
+  style.stroke: "#8B9BB1"
+  style.font-size: 20
+}
+n8001c27439650c5c: "Global" {
+  style.fill: "#F3F6FA"
+  style.stroke: "#8B9BB1"
+  style.font-size: 20
+}
+naf66d06d22692885.n0e7f5ea036bbbde9: "suffix\nrandom_id" {
+  style.border-radius: 8
+  style.fill: "#FFFFFF"
+  style.font-size: 16
+}
+naf66d06d22692885: "region: var.region" {
+  style.fill: "#F3F6FA"
+  style.stroke: "#8B9BB1"
+  style.font-size: 20
+}
+naf66d06d22692885.nd727340b00ba37c7.n3d6bcf67cfebe7bf.n8e5302dc2cff7ef9 -> naf66d06d22692885.nd727340b00ba37c7.n3d6bcf67cfebe7bf.ne3c63999d709510a
+naf66d06d22692885.nd727340b00ba37c7.n3d6bcf67cfebe7bf.n65e2216e6bd0ddd0 -> naf66d06d22692885.nd727340b00ba37c7.n3d6bcf67cfebe7bf.ne3c63999d709510a
+legend: "Arrows: consumer → dependency; nesting replaces child → parent edges." { shape: text; near: bottom-center }

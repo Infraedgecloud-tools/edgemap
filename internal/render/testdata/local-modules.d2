@@ -1,0 +1,29 @@
+direction: down
+title: "Terraform architecture" { shape: text; near: top-center }
+n6554922d53280bca.n5d4832be4af00e1e.n8c676146b2fc8c92.n34a62f9385c1344b: "web\naws_instance" {
+  style.border-radius: 8
+  style.fill: "#FFFFFF"
+  style.font-size: 16
+}
+n6554922d53280bca.n5d4832be4af00e1e.n8c676146b2fc8c92.n249a68e698fc3240: "public\naws_subnet" {
+  style.border-radius: 8
+  style.fill: "#FFFFFF"
+  style.font-size: 16
+}
+n6554922d53280bca.n5d4832be4af00e1e: "VPC · main" {
+  style.fill: "#F3F6FA"
+  style.stroke: "#8B9BB1"
+  style.font-size: 20
+}
+n6554922d53280bca.n5d4832be4af00e1e.n8c676146b2fc8c92: "public" {
+  style.fill: "#F3F6FA"
+  style.stroke: "#8B9BB1"
+  style.font-size: 20
+}
+n6554922d53280bca: "eu-west-2" {
+  style.fill: "#F3F6FA"
+  style.stroke: "#8B9BB1"
+  style.font-size: 20
+}
+n6554922d53280bca.n5d4832be4af00e1e.n8c676146b2fc8c92.n34a62f9385c1344b -> n6554922d53280bca.n5d4832be4af00e1e.n8c676146b2fc8c92.n249a68e698fc3240: "2 refs"
+legend: "Arrows: consumer → dependency; nesting replaces child → parent edges." { shape: text; near: bottom-center }
