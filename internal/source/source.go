@@ -9,6 +9,7 @@ type Attribute struct {
 	Literal    bool
 	Raw        string
 	References []string
+	Bindings   map[string]string
 }
 
 // Block is an infrastructure declaration. Attributes include nested block paths.
