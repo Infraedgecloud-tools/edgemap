@@ -9,3 +9,5 @@
 .terraform/
 *.tfvars
 *.tfvars.json
+
+/THIRD_PARTY_LICENSES/

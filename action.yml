@@ -1,0 +1,73 @@
+name: Edgemap architecture diagram
+description: Render Terraform configuration with a pinned, checksum-verified edgemap release
+inputs:
+  directory:
+    description: Terraform directory in the checked-out workspace
+    default: '.'
+  version:
+    description: Exact release tag
+    default: v0.1.0
+  artifact-name:
+    description: Optional unique artifact name (letters, digits, dot, dash, underscore)
+    default: ''
+  no-icons:
+    description: Disable icon requests
+    default: 'false'
+runs:
+  using: composite
+  steps:
+    - name: Download and verify edgemap
+      shell: bash
+      env:
+        EDGEMAP_VERSION: ${{ inputs.version }}
+      run: |
+        set -euo pipefail
+        [[ "$EDGEMAP_VERSION" =~ ^v[0-9]+\.[0-9]+\.[0-9]+(-[A-Za-z0-9.-]+)?$ ]] || { echo 'Invalid release tag'; exit 1; }
+        case "$RUNNER_OS" in Linux) platform=linux;; macOS) platform=darwin;; Windows) platform=windows;; *) exit 1;; esac
+        case "$RUNNER_ARCH" in X64) arch=amd64;; ARM64) arch=arm64;; *) exit 1;; esac
+        extension=tar.gz
+        if [[ "$platform" == windows ]]; then extension=zip; fi
+        archive="edgemap_${EDGEMAP_VERSION#v}_${platform}_${arch}.${extension}"
+        install_dir=$(mktemp -d "$RUNNER_TEMP/edgemap.XXXXXX")
+        cd "$install_dir"
+        base="https://github.com/Infraedgecloud-tools/edgemap/releases/download/$EDGEMAP_VERSION"
+        curl --fail --silent --show-error --location --proto '=https' --proto-redir '=https' "$base/$archive" -o "$archive"
+        curl --fail --silent --show-error --location --proto '=https' --proto-redir '=https' "$base/checksums.txt" -o checksums.txt
+        expected=$(awk -v file="$archive" '$2 == file {print $1}' checksums.txt)
+        [[ "$expected" =~ ^[a-fA-F0-9]{64}$ ]] || { echo 'Missing or ambiguous checksum'; exit 1; }
+        if command -v sha256sum >/dev/null; then
+          printf '%s  %s\n' "$expected" "$archive" | sha256sum --check -
+        else
+          printf '%s  %s\n' "$expected" "$archive" | shasum -a 256 --check -
+        fi
+        if [[ "$extension" == zip ]]; then unzip -q "$archive"; else tar -xzf "$archive"; fi
+        printf '%s\n' "$install_dir" >> "$GITHUB_PATH"
+    - name: Render configuration
+      id: render
+      shell: bash
+      env:
+        EDGEMAP_DIRECTORY: ${{ inputs.directory }}
+        EDGEMAP_ARTIFACT_NAME: ${{ inputs.artifact-name }}
+        EDGEMAP_NO_ICONS: ${{ inputs.no-icons }}
+      run: |
+        set -euo pipefail
+        args=()
+        case "$EDGEMAP_NO_ICONS" in true) args+=(--no-icons);; false) ;; *) echo 'no-icons must be true or false'; exit 1;; esac
+        output_dir=$(mktemp -d "$RUNNER_TEMP/edgemap-output.XXXXXX")
+        artifact_name=${EDGEMAP_ARTIFACT_NAME:-edgemap-${output_dir##*.}}
+        [[ "$artifact_name" =~ ^[A-Za-z0-9][A-Za-z0-9_.-]*$ ]] || { echo 'Invalid artifact name'; exit 1; }
+        printf 'directory=%s\nartifact-name=%s\n' "$output_dir" "$artifact_name" >> "$GITHUB_OUTPUT"
+        edgemap render --out "$output_dir/diagram.svg" "${args[@]}" -- "$EDGEMAP_DIRECTORY"
+    - name: Upload diagram
+      id: diagram
+      uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
+      with:
+        name: ${{ steps.render.outputs.artifact-name }}
+        path: ${{ steps.render.outputs.directory }}/diagram.svg
+        if-no-files-found: error
+    - name: Link diagram in job summary
+      shell: bash
+      env:
+        EDGEMAP_ARTIFACT_URL: ${{ steps.diagram.outputs.artifact-url }}
+      run: |
+        printf '### Terraform architecture\n\n[Download the SVG diagram](%s)\n' "$EDGEMAP_ARTIFACT_URL" >> "$GITHUB_STEP_SUMMARY"
