@@ -141,3 +141,21 @@ func assertSVGFile(t *testing.T, filename string) {
 		t.Fatalf("root element = %q", root.XMLName.Local)
 	}
 }
+
+func TestRenderHiddenDataVPC(t *testing.T) {
+	dir := t.TempDir()
+	config := `provider "aws" { region = "eu-west-2" }
+ data "aws_vpc" "existing" { id = "vpc-example" }
+ resource "aws_subnet" "app" {
+ vpc_id = data.aws_vpc.existing.id
+ cidr_block = "10.0.1.0/24"
+ }`
+	if err := os.WriteFile(filepath.Join(dir, "main.tf"), []byte(config), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	output := filepath.Join(dir, "diagram.svg")
+	if _, _, err := executeRender("render", dir, "--no-icons", "--out", output); err != nil {
+		t.Fatal(err)
+	}
+	assertSVGFile(t, output)
+}

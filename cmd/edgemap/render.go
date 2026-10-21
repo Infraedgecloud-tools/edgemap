@@ -6,6 +6,7 @@ import (
 	"path/filepath"
 	"strings"
 
+	"github.com/Infraedgecloud-tools/edgemap/internal/filter"
 	"github.com/Infraedgecloud-tools/edgemap/internal/graph"
 	"github.com/Infraedgecloud-tools/edgemap/internal/parse"
 	"github.com/Infraedgecloud-tools/edgemap/internal/render"
@@ -15,6 +16,7 @@ import (
 func renderCommand() *cobra.Command {
 	var out, format, layout, title string
 	var noIcons bool
+	var filters filter.Options
 	cmd := &cobra.Command{Use: "render [dir]", Short: "Render static Terraform architecture", Args: cobra.MaximumNArgs(1), RunE: func(cmd *cobra.Command, args []string) error {
 		if format != "svg" && format != "d2" {
 			return fmt.Errorf("format must be svg or d2")
@@ -36,6 +38,7 @@ func renderCommand() *cobra.Command {
 		if err != nil {
 			return err
 		}
+		g = filter.Apply(g, filters)
 		options := render.Options{Title: title}
 		var warnings []string
 		if !noIcons {
@@ -82,6 +85,9 @@ func renderCommand() *cobra.Command {
 	flags.StringVar(&layout, "layout", "elk", "Layout engine: elk or dagre")
 	flags.StringVar(&title, "title", "Terraform architecture", "Diagram title")
 	flags.BoolVar(&noIcons, "no-icons", false, "Disable all icon network access")
+	flags.BoolVar(&filters.ShowIAM, "show-iam", false, "Draw IAM resources")
+	flags.BoolVar(&filters.ShowData, "show-data", false, "Draw data sources")
+	flags.BoolVar(&filters.ShowSG, "show-sg", false, "Draw security groups and rules")
 	return cmd
 }
 

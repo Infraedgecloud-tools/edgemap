@@ -16,6 +16,9 @@ func (b *builder) containment() {
 	original := b.graph.IDs()
 	for _, id := range original {
 		n := b.graph.Nodes[id]
+		if !strings.HasPrefix(n.Type, "aws_") && n.Type != "module" {
+			continue
+		}
 		region := "region:" + n.Region
 		b.group(region, n.Region, "region", "")
 		n.Container = region
