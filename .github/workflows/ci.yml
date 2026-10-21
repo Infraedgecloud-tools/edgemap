@@ -25,6 +25,8 @@ jobs:
       - uses: golangci/golangci-lint-action@4afd733a84b1f43292c63897423277bb7f4313a9 # v8
         with:
           version: v2.15.0
+      - name: Fuzz parser
+        run: go test ./internal/parse -run='^$' -fuzz=FuzzParse -fuzztime=30s
       - name: Check formatting
         run: golangci-lint fmt --diff
       - uses: goreleaser/goreleaser-action@e435ccd777264be153ace6237001ef4d979d3a7a # v6
