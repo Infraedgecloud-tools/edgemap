@@ -1,5 +1,5 @@
 name: Edgemap architecture diagram
-description: Render Terraform configuration with a pinned, checksum-verified edgemap release
+description: Render Terraform configuration with a pinned edgemap release checked against its checksums.txt
 inputs:
   directory:
     description: Terraform directory in the checked-out workspace
@@ -57,7 +57,8 @@ runs:
         artifact_name=${EDGEMAP_ARTIFACT_NAME:-edgemap-${output_dir##*.}}
         [[ "$artifact_name" =~ ^[A-Za-z0-9][A-Za-z0-9_.-]*$ ]] || { echo 'Invalid artifact name'; exit 1; }
         printf 'directory=%s\nartifact-name=%s\n' "$output_dir" "$artifact_name" >> "$GITHUB_OUTPUT"
-        edgemap render --out "$output_dir/diagram.svg" "${args[@]}" -- "$EDGEMAP_DIRECTORY"
+        # ${args[@]+...} keeps an empty array safe under set -u on bash 3.2 (macOS).
+        edgemap render --out "$output_dir/diagram.svg" ${args[@]+"${args[@]}"} -- "$EDGEMAP_DIRECTORY"
     - name: Upload diagram
       id: diagram
       uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
