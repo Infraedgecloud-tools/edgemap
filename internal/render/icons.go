@@ -78,6 +78,18 @@ func iconSet(ctx context.Context, g *graph.Graph, cache string, client *http.Cli
 	return icons, warnings
 }
 
+// IconURLs maps each catalog icon type in the graph to its public URL. It makes
+// no requests; D2 output uses these portable references instead of cache paths.
+func IconURLs(g *graph.Graph) map[string]string {
+	urls := map[string]string{}
+	for _, n := range g.Nodes {
+		if item, _ := catalog.Lookup(n.Type); item.Icon != "" {
+			urls[n.Type] = IconURL(item.Icon)
+		}
+	}
+	return urls
+}
+
 // IconURL is the public location of a catalog icon.
 func IconURL(icon string) string {
 	return "https://icons.terrastruct.com/aws/" + icon

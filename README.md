@@ -15,8 +15,8 @@ edgemap render ./testdata/multi-az
 ```
 
 The default writes `diagram.svg` and editable `diagram.d2`. SVG icons are bundled
-into data URIs; a generated SVG can be viewed offline. D2 icon paths refer to the
-local cache; use `--no-icons` for a portable D2 file.
+into data URIs; a generated SVG can be viewed offline. The D2 file refers to icons
+by their public `https://icons.terrastruct.com` URLs, never by local cache paths.
 
 ## Commands
 
@@ -86,9 +86,10 @@ use grey and explicitly say that infrastructure remains.
 - Symlinked and special-file inputs are skipped. Individual input files are limited
   to 16 MiB, module nesting to 32 levels, expanded module calls to 10,000 and parsed
   nodes to 10,000; exceeding the load or node limit stops with an error.
-- Default renders fetch a small fixed set of AWS icons from
+- Default SVG renders fetch a small fixed set of AWS icons from
   `https://icons.terrastruct.com` and cache them under the user cache directory.
-  Fetch failures use plain shapes with a warning. `--no-icons` is offline.
+  Fetch failures use plain shapes with a warning; after the first network failure
+  no further icons are requested. `--format d2` and `--no-icons` make no requests.
 - No telemetry, cloud API calls, module downloads, or Terraform subprocesses.
 
 ## Contributing

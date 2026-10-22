@@ -59,6 +59,19 @@ func renderCommand() *cobra.Command {
 		}
 		g = filter.Apply(g, filters)
 		var warnings []string
+		// The SVG compile reads cached local files; the .d2 file people keep or share
+		// refers to the public icon URLs instead, so it holds no machine paths.
+		portable := options
+		if !noIcons {
+			portable.Icons = render.IconURLs(g)
+		}
+		if format == "d2" {
+			d2, err := render.Emit(g, portable)
+			if err != nil {
+				return err
+			}
+			return writeOutputs(cmd, warnings, g, output{out, []byte(d2)})
+		}
 		if !noIcons {
 			options.Icons, warnings = render.Icons(cmd.Context(), g)
 		}
@@ -66,36 +79,29 @@ func renderCommand() *cobra.Command {
 		if err != nil {
 			return err
 		}
-		if format == "svg" {
-			svg, err := render.SVG(cmd.Context(), d2, layout)
-			if err != nil && len(options.Icons) > 0 {
-				options.Icons = nil
-				warnings = append(warnings, "icon render failed; using plain shapes")
-				d2, err = render.Emit(g, options)
-				if err != nil {
-					return err
-				}
-				svg, err = render.SVG(cmd.Context(), d2, layout)
-			}
-			if err != nil {
+		svg, err := render.SVG(cmd.Context(), d2, layout)
+		if err != nil && len(options.Icons) > 0 {
+			options.Icons = nil
+			warnings = append(warnings, "icon render failed; using plain shapes")
+			if d2, err = render.Emit(g, options); err != nil {
 				return err
 			}
-			if err := writeOutput(out, svg); err != nil {
-				return err
-			}
-			if err := writeOutput(strings.TrimSuffix(out, ".svg")+".d2", []byte(d2)); err != nil {
-				return err
-			}
-		} else if err := writeOutput(out, []byte(d2)); err != nil {
+			svg, err = render.SVG(cmd.Context(), d2, layout)
+		}
+		if err != nil {
 			return err
 		}
-		for _, warning := range warnings {
-			cmd.PrintErrln("warning:", warning)
+		// Keep the sidecar's icons consistent with what the SVG actually shows.
+		for kind := range portable.Icons {
+			if options.Icons[kind] == "" {
+				delete(portable.Icons, kind)
+			}
 		}
-		if len(g.Warnings) > 0 {
-			cmd.PrintErrf("%d static-analysis warnings; run edgemap inspect for details\n", len(g.Warnings))
+		sidecar, err := render.Emit(g, portable)
+		if err != nil {
+			return err
 		}
-		return nil
+		return writeOutputs(cmd, warnings, g, output{out, svg}, output{strings.TrimSuffix(out, ".svg") + ".d2", []byte(sidecar)})
 	}}
 	flags := cmd.Flags()
 	flags.StringVar(&planPath, "plan", "", "Local terraform show -json plan (never uploaded)")
@@ -108,6 +114,26 @@ func renderCommand() *cobra.Command {
 	flags.BoolVar(&filters.ShowData, "show-data", false, "Draw data sources")
 	flags.BoolVar(&filters.ShowSG, "show-sg", false, "Draw security groups and rules")
 	return cmd
+}
+
+type output struct {
+	path string
+	data []byte
+}
+
+func writeOutputs(cmd *cobra.Command, warnings []string, g *graph.Graph, outputs ...output) error {
+	for _, o := range outputs {
+		if err := writeOutput(o.path, o.data); err != nil {
+			return err
+		}
+	}
+	for _, warning := range warnings {
+		cmd.PrintErrln("warning:", warning)
+	}
+	if len(g.Warnings) > 0 {
+		cmd.PrintErrf("%d static-analysis warnings; run edgemap inspect for details\n", len(g.Warnings))
+	}
+	return nil
 }
 
 func writeOutput(path string, data []byte) error {

@@ -50,7 +50,7 @@ By default, IAM, data sources, security groups and security-group rules are hidd
 
 The renderer emits nodes in sorted address order and quotes labels. D2 identifiers are derived from addresses so Terraform names cannot become D2 syntax. SVG uses the embedded D2 ELK or Dagre layout; the D2 text is the stable golden-test boundary. SVG bytes are not promised to be stable across dependency upgrades.
 
-The icon path fetches catalog-selected HTTPS assets, caches them beneath `os.UserCacheDir()/edgemap`, and bundles local images into SVG. Fetch or icon-render failures fall back to plain shapes with warnings. `--no-icons` disables icon requests. Cached paths in an icon-enabled `.d2` file are machine-local; the bundled SVG is the portable output.
+The icon path fetches catalog-selected HTTPS assets, caches them beneath `os.UserCacheDir()/edgemap`, and bundles local images into SVG. Fetch or icon-render failures fall back to plain shapes with warnings. `--no-icons` disables icon requests. The SVG compile reads cached local files, while the written `.d2` file refers to the public icon URLs, so it contains no machine paths. `--format d2` makes no requests.
 
 Configuration files, the module manifest and plan input are limited to 16 MiB each. Plan action sequences are validated before annotation. Graph construction and plan overlay have a 10,000-node guardrail; module expansion is bounded by nesting depth. Non-regular files and file symlinks are skipped with warnings. Module directories are resolved separately; directory cycles and excessive nesting are diagnosed. These checks are not a filesystem sandbox: local module paths can reference directories outside the root.
 

@@ -159,3 +159,51 @@ func TestRenderHiddenDataVPC(t *testing.T) {
 	}
 	assertSVGFile(t, output)
 }
+
+func TestD2OutputReferencesPublicIconURLs(t *testing.T) {
+	if runtime.GOOS != "linux" {
+		t.Skip("isolated XDG icon cache test requires Linux")
+	}
+	cache := t.TempDir()
+	t.Setenv("XDG_CACHE_HOME", cache)
+	var calls atomic.Int64
+	replaceTransport(t, func(req *http.Request) (*http.Response, error) {
+		calls.Add(1)
+		return &http.Response{
+			StatusCode: http.StatusOK,
+			Body:       io.NopCloser(strings.NewReader(`<svg xmlns="http://www.w3.org/2000/svg"><path d="M0 0h1v1z"/></svg>`)),
+			Request:    req,
+		}, nil
+	})
+	dir := t.TempDir()
+	svg := filepath.Join(dir, "diagram.svg")
+	if _, stderr, err := executeRender("render", "../../testdata/two-tier", "--out", svg); err != nil {
+		t.Fatalf("%v\n%s", err, stderr)
+	}
+	if calls.Load() == 0 {
+		t.Fatal("SVG render did not fetch icons")
+	}
+	sidecar, err := os.ReadFile(filepath.Join(dir, "diagram.d2")) // #nosec G304 -- test output path.
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !bytes.Contains(sidecar, []byte(`icon: "https://icons.terrastruct.com/aws/Compute/Amazon-EC2.svg"`)) || bytes.Contains(sidecar, []byte(cache)) {
+		t.Errorf("sidecar icons are not portable:\n%s", sidecar)
+	}
+
+	calls.Store(0)
+	d2 := filepath.Join(dir, "only.d2")
+	if _, stderr, err := executeRender("render", "../../testdata/two-tier", "--format", "d2", "--out", d2); err != nil {
+		t.Fatalf("%v\n%s", err, stderr)
+	}
+	if calls.Load() != 0 {
+		t.Errorf("--format d2 made %d icon requests", calls.Load())
+	}
+	data, err := os.ReadFile(d2) // #nosec G304 -- test output path.
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !bytes.Contains(data, []byte("https://icons.terrastruct.com/aws/")) {
+		t.Error("--format d2 omitted icon URLs")
+	}
+}
