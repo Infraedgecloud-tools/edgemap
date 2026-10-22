@@ -1,0 +1,45 @@
+direction: down
+title: "Terraform architecture" { shape: text; near: top-center }
+n945674f01ebd73f1.n2deb1d162b3c889d.nedb25e21d80baee1.nbe5f5f86459e8b1f: "api\naws_instance" {
+  style.border-radius: 8
+  style.fill: "#FFFFFF"
+  style.font-size: 16
+}
+n945674f01ebd73f1.n2deb1d162b3c889d.nf42d7cab760bdcce.n5fb9f9030d2f9766: "web\naws_lb" {
+  style.border-radius: 8
+  style.fill: "#FFFFFF"
+  style.font-size: 16
+}
+n945674f01ebd73f1.n2deb1d162b3c889d.nedb25e21d80baee1.ncd034cd878a766b2: "app\naws_subnet" {
+  style.border-radius: 8
+  style.fill: "#FFFFFF"
+  style.font-size: 16
+}
+n945674f01ebd73f1.n2deb1d162b3c889d.nf42d7cab760bdcce.nae6b2db5911c0767: "web\naws_subnet" {
+  style.border-radius: 8
+  style.fill: "#FFFFFF"
+  style.font-size: 16
+}
+n945674f01ebd73f1.n2deb1d162b3c889d: "VPC · shared (data source)" {
+  style.fill: "#F3F6FA"
+  style.stroke: "#8B9BB1"
+  style.font-size: 20
+}
+n945674f01ebd73f1.n2deb1d162b3c889d.nedb25e21d80baee1: "private" {
+  style.fill: "#F3F6FA"
+  style.stroke: "#8B9BB1"
+  style.font-size: 20
+}
+n945674f01ebd73f1.n2deb1d162b3c889d.nf42d7cab760bdcce: "public" {
+  style.fill: "#F3F6FA"
+  style.stroke: "#8B9BB1"
+  style.font-size: 20
+}
+n945674f01ebd73f1: "eu-west-1" {
+  style.fill: "#F3F6FA"
+  style.stroke: "#8B9BB1"
+  style.font-size: 20
+}
+n945674f01ebd73f1.n2deb1d162b3c889d.nedb25e21d80baee1.nbe5f5f86459e8b1f -> n945674f01ebd73f1.n2deb1d162b3c889d.nedb25e21d80baee1.ncd034cd878a766b2
+n945674f01ebd73f1.n2deb1d162b3c889d.nf42d7cab760bdcce.n5fb9f9030d2f9766 -> n945674f01ebd73f1.n2deb1d162b3c889d.nf42d7cab760bdcce.nae6b2db5911c0767
+legend: "Arrows: consumer → dependency; nesting replaces child → parent edges." { shape: text; near: bottom-center }

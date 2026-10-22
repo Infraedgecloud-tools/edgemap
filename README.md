@@ -54,7 +54,9 @@ Arrows point **from the consumer to its dependency**. Repeated references are
 bundled and counted. Nesting replaces child-to-parent edges. Provider blocks,
 variables, locals, outputs and Terraform backend configuration are never drawn.
 IAM and security groups are hidden by default and summarized as badges on their
-consumers. Data sources are hidden. Use the `--show-*` flags to reveal them.
+consumers. Data sources are hidden, except that a `data "aws_vpc"` still draws
+as a VPC container while it holds visible resources. Use the `--show-*` flags to
+reveal them.
 
 Local modules and already-installed modules are expanded. Other modules remain
 collapsed. The standard AWS VPC module has synthetic public/private tiers so

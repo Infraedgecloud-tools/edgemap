@@ -13,7 +13,7 @@ import (
 )
 
 func TestGolden(t *testing.T) {
-	for _, fixture := range []string{"two-tier", "multi-az", "local-modules", "vpc-module", "for-each", "broken"} {
+	for _, fixture := range []string{"two-tier", "multi-az", "local-modules", "vpc-module", "for-each", "broken", "existing-vpc"} {
 		t.Run(fixture, func(t *testing.T) {
 			g, err := graph.Build(context.Background(), parse.Terraform{}, filepath.Join("../../testdata", fixture))
 			if err != nil {

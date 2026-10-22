@@ -60,6 +60,9 @@ func Emit(g *graph.Graph, options Options) (string, error) {
 		label := n.Label
 		if n.Type == "aws_vpc" || n.Type == "aws_vpc_module" {
 			label = "VPC · " + label
+			if n.Data {
+				label += " (data source)"
+			}
 		}
 		if !n.Group {
 			label += "\n" + n.Type
