@@ -38,6 +38,7 @@ func (b *builder) containment() {
 		}
 	}
 	// Establish subnet tiers before placing resources that refer to them.
+	public := b.internetSubnets()
 	for _, id := range original {
 		n := b.graph.Nodes[id]
 		if n.Type != "aws_subnet" {
@@ -52,7 +53,7 @@ func (b *builder) containment() {
 		if parent == nil || !parent.Group {
 			continue
 		}
-		n.Container = parent.ID + ".tier." + b.tier(n)
+		n.Container = parent.ID + ".tier." + b.tier(n, public)
 	}
 	// A fixed point handles subnet-group and cluster indirection, without relying
 	// on dependency edges as the source of containment.
@@ -140,25 +141,45 @@ func (b *builder) commonContainer(ids []string) string {
 	return ""
 }
 
-func (b *builder) tier(n *Node) string {
+// internetSubnets indexes subnets associated with a route table that has a
+// default route to an internet gateway, inline or as a separate aws_route.
+func (b *builder) internetSubnets() map[string]bool {
+	internetTables := map[string]bool{}
+	for _, id := range b.graph.IDs() {
+		n := b.graph.Nodes[id]
+		switch {
+		case n.Type == "aws_route_table" && b.internetRoute(n):
+			internetTables[id] = true
+		case n.Type == "aws_route" && b.internetRoute(n):
+			for _, table := range b.references(n, "route_table_id") {
+				internetTables[table] = true
+			}
+		}
+	}
+	subnets := map[string]bool{}
+	for _, id := range b.graph.IDs() {
+		n := b.graph.Nodes[id]
+		if n.Type != "aws_route_table_association" {
+			continue
+		}
+		for _, table := range b.references(n, "route_table_id") {
+			if internetTables[table] {
+				for _, subnet := range b.references(n, "subnet_id") {
+					subnets[subnet] = true
+				}
+			}
+		}
+	}
+	return subnets
+}
+
+func (b *builder) tier(n *Node, internetSubnets map[string]bool) string {
 	if n.Attributes["map_public_ip_on_launch"].Value == true {
 		return "public"
 	}
 	// An IGW default route is stronger evidence than a private Name tag.
-	for _, assoc := range b.graph.Nodes {
-		if assoc.Type != "aws_route_table_association" || !contains(b.references(assoc, "subnet_id"), n.ID) {
-			continue
-		}
-		for _, tableID := range b.references(assoc, "route_table_id") {
-			if table := b.graph.Nodes[tableID]; table != nil && b.internetRoute(table) {
-				return "public"
-			}
-			for _, route := range b.graph.Nodes {
-				if route.Type == "aws_route" && contains(b.references(route, "route_table_id"), tableID) && b.internetRoute(route) {
-					return "public"
-				}
-			}
-		}
+	if internetSubnets[n.ID] {
+		return "public"
 	}
 	if tags, ok := n.Attributes["tags"].Value.(map[string]any); ok {
 		name, _ := tags["Name"].(string)
@@ -196,15 +217,6 @@ func (b *builder) internetRoute(n *Node) bool {
 					return true
 				}
 			}
-		}
-	}
-	return false
-}
-
-func contains(ids []string, id string) bool {
-	for _, v := range ids {
-		if v == id {
-			return true
 		}
 	}
 	return false

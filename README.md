@@ -82,7 +82,8 @@ use grey and explicitly say that infrastructure remains.
 - Provider-specific semantic grouping is AWS only; the catalog is deliberately small.
 - Broken files produce warnings and partial results. `inspect` lists the warnings.
 - Symlinked and special-file inputs are skipped. Individual input files are limited
-  to 16 MiB, module nesting to 32 levels and parsed nodes to 10,000.
+  to 16 MiB, module nesting to 32 levels, expanded module calls to 10,000 and parsed
+  nodes to 10,000; exceeding the load or node limit stops with an error.
 - Default renders fetch a small fixed set of AWS icons from
   `https://icons.terrastruct.com` and cache them under the user cache directory.
   Fetch failures use plain shapes with a warning. `--no-icons` is offline.
