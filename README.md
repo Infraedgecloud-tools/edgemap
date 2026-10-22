@@ -5,14 +5,19 @@
 Read Terraform/OpenTofu configuration and produce a grouped architecture diagram
 without cloud credentials, `terraform init`, or executing Terraform.
 
-## Install from this checkout
+## Install
 
-Requires Go 1.27.3. No release has been published yet.
+The current release is the candidate
+[v0.1.0-rc.1](https://github.com/Infraedgecloud-tools/edgemap/releases/tag/v0.1.0-rc.1).
+Download the archive for your platform from that page and check it against
+`checksums.txt`, or build it with Go 1.27:
 
 ```sh
-go install ./cmd/edgemap
-edgemap render ./testdata/multi-az
+go install github.com/Infraedgecloud-tools/edgemap/cmd/edgemap@v0.1.0-rc.1
+edgemap render path/to/terraform
 ```
+
+From a checkout, `go install ./cmd/edgemap` builds the current source.
 
 The default writes `diagram.svg` and editable `diagram.d2`. SVG icons are bundled
 into data URIs; a generated SVG can be viewed offline. The D2 file refers to icons
@@ -112,8 +117,8 @@ release archives. AWS icons are fetched separately and are not vendored here.
 
 ## Release and Action setup
 
-Release workflows are prepared; publication and hosted smoke tests are pending.
-Once v0.1.0 is published, the intended Homebrew command is:
+Homebrew installs start with v0.1.0; the candidate is not in the tap. Once v0.1.0
+is published, the command is:
 
 ```sh
 brew install Infraedgecloud-tools/tap/edgemap
@@ -121,14 +126,14 @@ brew install Infraedgecloud-tools/tap/edgemap
 
 The composite Action downloads an exact release and checks the archive against that
 release's `checksums.txt`. This detects a corrupted download, not a tampered release.
-After publishing, use it following `actions/checkout`, with `contents: read`:
+Use it after `actions/checkout`, with `contents: read`. Until v0.1.0 exists, pass
+the candidate explicitly:
 
 ```yaml
-- uses: Infraedgecloud-tools/edgemap@v0.1.0
+- uses: Infraedgecloud-tools/edgemap@v0.1.0-rc.1
   with:
     directory: ./infrastructure
-    version: v0.1.0
-    no-icons: 'true'
+    version: v0.1.0-rc.1
 ```
 
 Pin the Action to the release commit SHA in production workflows. It uploads only
