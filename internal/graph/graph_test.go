@@ -627,6 +627,31 @@ resource "aws_s3_bucket" "audit" {
 	}
 }
 
+func TestSubnetNameTagWords(t *testing.T) {
+	for name, want := range map[string]string{
+		"app-public-a":              "public",
+		"private_data":              "private",
+		"Private.Workers":           "private",
+		"private-nat-public-facing": "subnets",
+		"republican":                "subnets",
+		"privateer":                 "subnets",
+		"":                          "subnets",
+	} {
+		g := graphFromFiles(t, map[string]string{"main.tf": fmt.Sprintf(`
+provider "aws" { region = "eu-west-2" }
+resource "aws_vpc" "main" { cidr_block = "10.0.0.0/16" }
+resource "aws_instance" "x" { subnet_id = aws_subnet.s.id }
+resource "aws_subnet" "s" {
+  vpc_id = aws_vpc.main.id
+  tags   = { Name = %q }
+}
+`, name)})
+		if got := requireNode(t, g, "aws_subnet.s").Container; got != "aws_vpc.main.tier."+want {
+			t.Errorf("Name %q placed in %q, want tier %s", name, got, want)
+		}
+	}
+}
+
 func TestManyCallsToOneModuleStayWithinBudget(t *testing.T) {
 	var root strings.Builder
 	root.WriteString(`provider "aws" { region = "eu-west-2" }` + "\n")

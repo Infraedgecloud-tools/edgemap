@@ -2,6 +2,7 @@ package graph
 
 import (
 	"strings"
+	"unicode"
 
 	"github.com/Infraedgecloud-tools/edgemap/internal/catalog"
 )
@@ -183,11 +184,17 @@ func (b *builder) tier(n *Node, internetSubnets map[string]bool) string {
 	}
 	if tags, ok := n.Attributes["tags"].Value.(map[string]any); ok {
 		name, _ := tags["Name"].(string)
-		name = strings.ToLower(name)
-		if strings.Contains(name, "public") {
-			return "public"
+		words := map[string]bool{}
+		for _, word := range strings.FieldsFunc(strings.ToLower(name), func(r rune) bool {
+			return !unicode.IsLetter(r) && !unicode.IsDigit(r)
+		}) {
+			words[word] = true
 		}
-		if strings.Contains(name, "private") {
+		// A name that mentions both is ambiguous, not evidence for either tier.
+		switch {
+		case words["public"] && !words["private"]:
+			return "public"
+		case words["private"] && !words["public"]:
 			return "private"
 		}
 	}
