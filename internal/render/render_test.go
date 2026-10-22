@@ -76,6 +76,17 @@ func TestIconValidation(t *testing.T) {
 		{`<svg><style>.x {fill:url(https://example.com/x)}</style></svg>`, false},
 		{`<svg><style>@import "https://example.com/x";</style></svg>`, false},
 		{`<svg><style>.x {fill:url(#gradient)}</style></svg>`, true},
+		{`<svg><defs><linearGradient id="g"><stop offset="0" stop-color="#fff"/></linearGradient></defs><rect fill="url(#g)"/></svg>`, true},
+		{`<svg xmlns:xlink="http://www.w3.org/1999/xlink"><use xlink:href="#a"/></svg>`, true},
+		{`<svg><style>.a{background:image-set("http://example.com/x" 1x)}</style></svg>`, false},
+		{`<svg><style>.a{background:src("http://example.com/x")}</style></svg>`, false},
+		{`<svg><video src="https://example.com/v.mp4"/></svg>`, false},
+		{`<svg><iframe src="https://example.com"/></svg>`, false},
+		{`<svg><a><set attributeName="href" to="javascript:alert(1)"/></a></svg>`, false},
+		{`<svg><animate attributeName="href" values="http://example.com/"/></svg>`, false},
+		{`<svg><filter><feImage href="#a"/></filter></svg>`, false},
+		{`<svg><rect fill="url(https://example.com/x)"/></svg>`, false},
+		{`<svg><rect class="x" data-src="https://example.com/x"/></svg>`, false},
 	} {
 		if validIcon([]byte(test.svg)) != test.valid {
 			t.Errorf("validation mismatch %s", test.svg)
