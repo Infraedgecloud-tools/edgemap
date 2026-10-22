@@ -2,7 +2,9 @@ package main
 
 import (
 	"bytes"
+	"errors"
 	"fmt"
+	"io/fs"
 	"os"
 	"path/filepath"
 	"strings"
@@ -122,11 +124,15 @@ type output struct {
 }
 
 func writeOutputs(cmd *cobra.Command, warnings []string, g *graph.Graph, outputs ...output) error {
+	written := make([]string, 0, len(outputs))
 	for _, o := range outputs {
 		if err := writeOutput(o.path, o.data); err != nil {
-			return err
+			return fmt.Errorf("write %s: %w", o.path, err)
 		}
+		written = append(written, o.path)
 	}
+	// The SVG render also replaces the .d2 file beside it; say so on stderr.
+	cmd.PrintErrln("wrote", strings.Join(written, " and "))
 	for _, warning := range warnings {
 		cmd.PrintErrln("warning:", warning)
 	}
@@ -136,21 +142,29 @@ func writeOutputs(cmd *cobra.Command, warnings []string, g *graph.Graph, outputs
 	return nil
 }
 
+// writeOutput replaces path atomically. Errors name the target, not the
+// temporary file, and the result is readable like any ordinary output file.
 func writeOutput(path string, data []byte) error {
 	file, err := os.CreateTemp(filepath.Dir(path), ".edgemap-*")
 	if err != nil {
-		return fmt.Errorf("create output: %w", err)
+		var pathErr *fs.PathError
+		if errors.As(err, &pathErr) {
+			err = pathErr.Err
+		}
+		return err
 	}
 	defer func() { _ = os.Remove(file.Name()) }()
 	if _, err := file.Write(data); err != nil {
 		_ = file.Close()
 		return err
 	}
+	// CreateTemp uses 0600; diagrams are meant to be shared, served and committed.
+	if err := file.Chmod(0o644); err != nil {
+		_ = file.Close()
+		return err
+	}
 	if err := file.Close(); err != nil {
 		return err
 	}
-	if err := os.Rename(file.Name(), path); err != nil {
-		return fmt.Errorf("replace output: %w", err)
-	}
-	return nil
+	return os.Rename(file.Name(), path)
 }

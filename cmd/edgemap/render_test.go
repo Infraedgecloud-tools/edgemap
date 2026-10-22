@@ -207,3 +207,31 @@ func TestD2OutputReferencesPublicIconURLs(t *testing.T) {
 		t.Error("--format d2 omitted icon URLs")
 	}
 }
+
+func TestRenderOutputsAreReadableAndReported(t *testing.T) {
+	dir := t.TempDir()
+	svg := filepath.Join(dir, "diagram.svg")
+	_, stderr, err := executeRender("render", "../../testdata/two-tier", "--no-icons", "--out", svg)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !strings.Contains(stderr, "wrote "+svg+" and "+filepath.Join(dir, "diagram.d2")) {
+		t.Errorf("stderr does not report both outputs: %q", stderr)
+	}
+	if runtime.GOOS != "windows" {
+		for _, name := range []string{"diagram.svg", "diagram.d2"} {
+			info, err := os.Stat(filepath.Join(dir, name))
+			if err != nil {
+				t.Fatal(err)
+			}
+			if info.Mode().Perm() != 0o644 {
+				t.Errorf("%s mode = %v, want 0644", name, info.Mode().Perm())
+			}
+		}
+	}
+	missing := filepath.Join(dir, "missing", "diagram.svg")
+	_, _, err = executeRender("render", "../../testdata/two-tier", "--no-icons", "--out", missing)
+	if err == nil || !strings.Contains(err.Error(), "write "+missing) || strings.Contains(err.Error(), ".edgemap-") {
+		t.Errorf("missing directory error = %v", err)
+	}
+}
