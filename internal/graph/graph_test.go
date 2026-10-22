@@ -680,6 +680,44 @@ module "git" { source = "git::https://example.com/acme/terraform-aws-cache.git?r
 	}
 }
 
+func TestWarningsExplainDiagramUncertaintyOnly(t *testing.T) {
+	if g := fixtureGraph(t, "two-tier"); len(g.Warnings) != 0 {
+		t.Errorf("fully static fixture warnings: %v", g.Warnings)
+	}
+	g := graphFromFiles(t, map[string]string{
+		"a.tf": `
+provider "aws" { region = "eu-west-2" }
+resource "aws_instance" "web" { for_each = var.names }
+resource "aws_instance" "web" { count = 2 }
+module "copies" {
+  source = "./child"
+  count  = var.copies
+}
+`,
+		"child/main.tf": `
+resource "aws_sqs_queue" "a" {}
+resource "aws_sqs_queue" "b" {}
+`,
+		"b_override.tf": `resource "aws_instance" "web" { instance_type = "t3.large" }`,
+		"empty/main.tf": `variable "unused" {}`,
+		"z.tf": `
+module "none" {
+  source   = "./empty"
+  for_each = var.x
+}
+`,
+	})
+	want := []string{
+		"aws_instance.web: declared more than once; using a.tf",
+		"aws_instance.web: for_each is not evaluated; shown as ×?",
+		"module.copies: count is not evaluated; shown as ×?",
+		"module.none: for_each is not evaluated; shown as ×?",
+	}
+	if !slices.Equal(g.Warnings, want) {
+		t.Errorf("warnings = %q, want %q", g.Warnings, want)
+	}
+}
+
 func TestManyCallsToOneModuleStayWithinBudget(t *testing.T) {
 	var root strings.Builder
 	root.WriteString(`provider "aws" { region = "eu-west-2" }` + "\n")
