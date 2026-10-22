@@ -33,7 +33,7 @@ Containment uses AWS attribute semantics, not arbitrary dependency edges:
 - Provider region → VPC → public/private/unknown subnet tier → resource.
 - Public tiers use public-IP auto-assignment, an explicit default route to an internet gateway, or a `Name` tag; private tags identify private tiers. Missing evidence becomes `subnets`.
 - Resources spanning subnets in one tier sit in that tier. Resources spanning public and private tiers sit in their common VPC.
-- IAM, Route53, CloudFront and S3 use `Global`, as a display convention. Other unknown AWS types use their region's `Other` group. Non-AWS resources remain ungrouped plain nodes, without inferred AWS placement.
+- IAM, Route53, CloudFront and S3 use `Global`, as a display convention. Other unknown AWS types use their region's `Other` group. Non-AWS resources remain ungrouped plain nodes, without inferred AWS placement. A collapsed module is placed in an AWS region only when its source is evidently AWS: a registry address whose provider segment is `aws` (`namespace/name/aws`, optionally behind a registry hostname), or a repository named `terraform-aws-*`.
 - Non-literal regions retain their expression label. Accounts are never inferred.
 
 Edges point from a referencing resource to the resource it references. Multiple references share one edge with a count. Edges to a containing ancestor are omitted because nesting already expresses that relationship. Referenced containers survive pruning even when they have no contained resources.
