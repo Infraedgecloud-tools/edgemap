@@ -718,6 +718,31 @@ module "none" {
 	}
 }
 
+func TestJSONLocalsAndRegionLabels(t *testing.T) {
+	g := graphFromFiles(t, map[string]string{"main.tf.json": `{
+  "locals": {"region": "eu-west-1", "cidr": "10.0.0.0/16"},
+  "provider": {"aws": [{"region": "${local.region}"}, {"alias": "dr", "region": "${var.dr_region}"}]},
+  "resource": {"aws_vpc": {
+    "main": {"cidr_block": "${local.cidr}"},
+    "dr": {"provider": "aws.dr", "cidr_block": "10.1.0.0/16"}
+  }}
+}`})
+	if got := requireNode(t, g, "aws_vpc.main").Container; got != "region:eu-west-1" {
+		t.Errorf("JSON literal local region = %q", got)
+	}
+	if got := requireNode(t, g, "aws_vpc.dr").Container; got != "region:region: var.dr_region" {
+		t.Errorf("JSON non-literal region = %q", got)
+	}
+	for raw, want := range map[string]string{
+		`local.a`: "local.a", `"${local.a}"`: "local.a", `"${ var.x }"`: "var.x",
+		`"${a}-${b}"`: "${a}-${b}", `"plain"`: "plain",
+	} {
+		if got := bareExpression(raw); got != want {
+			t.Errorf("bareExpression(%s) = %q, want %q", raw, got, want)
+		}
+	}
+}
+
 func TestManyCallsToOneModuleStayWithinBudget(t *testing.T) {
 	var root strings.Builder
 	root.WriteString(`provider "aws" { region = "eu-west-2" }` + "\n")

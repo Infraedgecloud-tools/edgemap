@@ -9,6 +9,7 @@ import (
 	"path/filepath"
 	"slices"
 	"sort"
+	"strconv"
 	"strings"
 
 	"github.com/Infraedgecloud-tools/edgemap/internal/source"
@@ -129,7 +130,7 @@ func (b *builder) load(ctx context.Context, dir, scope string, inherited map[str
 			if !ok || !attr.Literal {
 				region = "unknown"
 				if attr.Raw != "" {
-					region = "region: " + attr.Raw
+					region = "region: " + bareExpression(attr.Raw)
 				}
 			}
 			regions[key] = region
@@ -233,13 +234,27 @@ func (b *builder) load(ctx context.Context, dir, scope string, inherited map[str
 }
 
 func resolveLiteral(attr source.Attribute, locals map[string]source.Attribute) source.Attribute {
-	if len(attr.References) == 1 && strings.TrimSpace(attr.Raw) == attr.References[0] {
+	if len(attr.References) == 1 && bareExpression(attr.Raw) == attr.References[0] {
 		if local, ok := locals[attr.References[0]]; ok {
 			attr.Value = local.Value
 			attr.Literal = true
 		}
 	}
 	return attr
+}
+
+// bareExpression returns the expression a whole-string template wraps, so
+// JSON "${local.region}" and native local.region compare equal.
+func bareExpression(raw string) string {
+	raw = strings.TrimSpace(raw)
+	if unquoted, err := strconv.Unquote(raw); err == nil && strings.HasPrefix(raw, `"`) {
+		raw = unquoted
+	}
+	inner, ok := strings.CutPrefix(raw, "${")
+	if inner, ok2 := strings.CutSuffix(inner, "}"); ok && ok2 && !strings.ContainsAny(inner, "${}") {
+		return strings.TrimSpace(inner)
+	}
+	return raw
 }
 
 func (b *builder) add(n *Node) {
