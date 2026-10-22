@@ -174,7 +174,7 @@ func Apply(g *graph.Graph, changes []Change) (map[string]string, error) {
 		if n.Type == "module" || n.Type == "aws_vpc_module" {
 			countLabel = fmt.Sprintf("%d plan resources", c.total)
 		}
-		n.Badge = append(n.Badge, fmt.Sprintf("%s · create %d · change %d · destroy %d · unchanged %d", countLabel, c.create, c.update, c.delete, c.unchanged))
+		n.Badge = append(n.Badge, summary(countLabel, c))
 		if c.forget > 0 {
 			n.Badge = append(n.Badge, fmt.Sprintf("forget %d (leave infrastructure)", c.forget))
 		}
@@ -190,6 +190,24 @@ func Apply(g *graph.Graph, changes []Change) (map[string]string, error) {
 		}
 	}
 	return colors, nil
+}
+
+// summary lists only the actions that occur. An all-unchanged resource shows
+// just its count, so the changes stand out.
+func summary(countLabel string, c *counts) string {
+	parts := []string{countLabel}
+	for _, action := range []struct {
+		name  string
+		count int
+	}{{"create", c.create}, {"change", c.update}, {"destroy", c.delete}} {
+		if action.count > 0 {
+			parts = append(parts, fmt.Sprintf("%s %d", action.name, action.count))
+		}
+	}
+	if c.unchanged > 0 && len(parts) > 1 {
+		parts = append(parts, fmt.Sprintf("unchanged %d", c.unchanged))
+	}
+	return strings.Join(parts, " · ")
 }
 
 const Legend = "Green: create · amber: change · red: destroy (priority: destroy > change > create). Counts include replacements in both create and destroy. Grey: forget (leave infrastructure)."

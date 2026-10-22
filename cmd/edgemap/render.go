@@ -53,6 +53,9 @@ func renderCommand() *cobra.Command {
 			if err != nil {
 				return err
 			}
+			if len(changes) == 0 {
+				cmd.PrintErrln("warning: plan lists no resource changes; is this terraform show -json output of a plan, not of state?")
+			}
 			options.Colors, err = plan.Apply(g, changes)
 			if err != nil {
 				return err

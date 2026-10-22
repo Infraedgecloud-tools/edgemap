@@ -1,0 +1,10 @@
+{
+  "format_version": "1.2",
+  "resource_changes": [
+    {"address": "aws_instance.web[0]", "type": "aws_instance", "change": {"actions": ["delete", "create"]}},
+    {"address": "aws_instance.web[1]", "type": "aws_instance", "change": {"actions": ["create"]}},
+    {"address": "aws_db_instance.data", "type": "aws_db_instance", "change": {"actions": ["update"]}},
+    {"address": "aws_s3_bucket.logs", "type": "aws_s3_bucket", "change": {"actions": ["no-op"]}},
+    {"address": "aws_s3_bucket.old", "type": "aws_s3_bucket", "change": {"actions": ["forget"]}}
+  ]
+}

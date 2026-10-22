@@ -39,8 +39,8 @@ func TestPlanRenderCollapsesIndexedActionsAndExcludesValues(t *testing.T) {
 		label, count, color string
 	}{
 		{"workers\\naws_instance", "×3 after plan · create 1 · change 1 · destroy 2 · unchanged 1", "#C0392B"},
-		{"fixed\\naws_instance", "×2 after plan · create 1 · change 1 · destroy 0 · unchanged 0", "#B76E00"},
-		{"archive\\naws_s3_bucket", "×1 after plan · create 1 · change 0 · destroy 0 · unchanged 0", "#16803C"},
+		{"fixed\\naws_instance", `×2 after plan · create 1 · change 1"`, "#B76E00"},
+		{"archive\\naws_s3_bucket", `×1 after plan · create 1"`, "#16803C"},
 	} {
 		block := d2NodeBlock(t, d2, tc.label)
 		if !strings.Contains(block, tc.count) {
@@ -113,4 +113,16 @@ func d2NodeBlock(t *testing.T, d2, label string) string {
 	}
 	t.Fatalf("node label %q not found", label)
 	return ""
+}
+
+func TestPlanWithoutResourceChangesWarns(t *testing.T) {
+	dir := t.TempDir()
+	planPath := writeSyntheticPlan(t, dir, `{"format_version":"1.2","values":{}}`)
+	_, stderr, err := executeRender("render", "../../testdata/two-tier", "--plan", planPath, "--no-icons", "--format", "d2", "--out", filepath.Join(dir, "x.d2"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !strings.Contains(stderr, "plan lists no resource changes") {
+		t.Errorf("state-like JSON accepted silently: %q", stderr)
+	}
 }
