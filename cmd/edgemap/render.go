@@ -77,21 +77,23 @@ func renderCommand() *cobra.Command {
 			}
 			return writeOutputs(cmd, warnings, g, output{out, []byte(d2)})
 		}
+		var icons render.IconSet
 		if !noIcons {
-			options.Icons, warnings = render.Icons(cmd.Context(), g)
+			icons, warnings = render.Icons(cmd.Context(), g)
+			options.Icons = icons.Files
 		}
 		d2, err := render.Emit(g, options)
 		if err != nil {
 			return err
 		}
-		svg, err := render.SVG(cmd.Context(), d2, layout)
+		svg, err := render.SVG(cmd.Context(), d2, layout, icons.Dir)
 		if err != nil && len(options.Icons) > 0 {
 			options.Icons = nil
 			warnings = append(warnings, "icon render failed; using plain shapes")
 			if d2, err = render.Emit(g, options); err != nil {
 				return err
 			}
-			svg, err = render.SVG(cmd.Context(), d2, layout)
+			svg, err = render.SVG(cmd.Context(), d2, layout, "")
 		}
 		if err != nil {
 			return err

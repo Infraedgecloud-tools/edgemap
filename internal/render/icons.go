@@ -21,15 +21,21 @@ import (
 	"github.com/Infraedgecloud-tools/edgemap/internal/source"
 )
 
-func Icons(ctx context.Context, g *graph.Graph) (map[string]string, []string) {
-	icons := map[string]string{}
+// IconSet holds icon files by resource type, named relative to Dir. Relative
+// names keep the D2 source, and so the SVG, independent of the cache location.
+type IconSet struct {
+	Dir   string
+	Files map[string]string
+}
+
+func Icons(ctx context.Context, g *graph.Graph) (IconSet, []string) {
 	cache, err := os.UserCacheDir()
 	if err != nil {
-		return icons, []string{"icons: no user cache; using plain shapes"}
+		return IconSet{}, []string{"icons: no user cache; using plain shapes"}
 	}
 	cache = filepath.Join(cache, "edgemap")
 	if err := os.MkdirAll(cache, 0o700); err != nil {
-		return icons, []string{"icons: cannot create cache; using plain shapes"}
+		return IconSet{}, []string{"icons: cannot create cache; using plain shapes"}
 	}
 	client := &http.Client{Timeout: 5 * time.Second, CheckRedirect: func(req *http.Request, _ []*http.Request) error {
 		if req.URL.Scheme != "https" || req.URL.Host != "icons.terrastruct.com" {
@@ -37,7 +43,8 @@ func Icons(ctx context.Context, g *graph.Graph) (map[string]string, []string) {
 		}
 		return nil
 	}}
-	return iconSet(ctx, g, cache, client)
+	files, warnings := iconSet(ctx, g, cache, client)
+	return IconSet{Dir: cache, Files: files}, warnings
 }
 
 func iconSet(ctx context.Context, g *graph.Graph, cache string, client *http.Client) (map[string]string, []string) {
@@ -55,7 +62,7 @@ func iconSet(ctx context.Context, g *graph.Graph, cache string, client *http.Cli
 		hash := sha256.Sum256([]byte(item.Icon))
 		path := filepath.Join(cache, fmt.Sprintf("%x.svg", hash[:16]))
 		if data, err := source.ReadRegularFile(path); err == nil && validIcon(data) {
-			icons[n.Type] = path
+			icons[n.Type] = filepath.Base(path)
 			continue
 		}
 		if offline {
@@ -73,7 +80,7 @@ func iconSet(ctx context.Context, g *graph.Graph, cache string, client *http.Cli
 			warnings = append(warnings, "icons: "+n.Type+" unavailable; using plain shape")
 			continue
 		}
-		icons[n.Type] = path
+		icons[n.Type] = filepath.Base(path)
 	}
 	return icons, warnings
 }
