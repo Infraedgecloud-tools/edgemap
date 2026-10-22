@@ -7,6 +7,7 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
+	"slices"
 	"sort"
 	"strings"
 
@@ -74,6 +75,7 @@ func Build(ctx context.Context, input source.Source, dir string) (*Graph, error)
 	b.edges()
 	b.prune()
 	sort.Strings(b.graph.Warnings)
+	b.graph.Warnings = slices.Compact(b.graph.Warnings)
 	return b.graph, nil
 }
 
@@ -161,20 +163,11 @@ func (b *builder) load(ctx context.Context, dir, scope string, inherited map[str
 				}
 			}
 			n := &Node{ID: id, Type: block.Labels[0], Label: block.Labels[1], Data: block.Kind == "data", Region: region, Scope: scope, Attributes: block.Attributes}
-			if count, ok := block.Attributes["count"]; ok {
-				badge := "×?"
-				if v, ok := count.Value.(float64); ok && count.Literal {
-					badge = fmt.Sprintf("×%.0f", v)
-				}
-				n.Badge = append(n.Badge, badge)
-			}
-			if _, ok := block.Attributes["for_each"]; ok {
-				n.Badge = append(n.Badge, "×?")
-			}
-			for key, attr := range block.Attributes {
-				if !attr.Literal {
-					b.graph.Warnings = append(b.graph.Warnings, id+": static expression retained for "+key)
-				}
+			n.Badge = multiplicity(block.Attributes)
+			b.warnMultiplicity(id, block.Attributes)
+			// Terraform merges *_override.tf files into earlier declarations by design.
+			if previous := b.graph.Nodes[id]; previous != nil && !overrideFile(block.File) {
+				b.graph.Warnings = append(b.graph.Warnings, id+": declared more than once; using "+filepath.Base(block.File))
 			}
 			b.add(n)
 		case "module":
@@ -200,6 +193,7 @@ func (b *builder) load(ctx context.Context, dir, scope string, inherited map[str
 				for input, attr := range block.Attributes {
 					b.inputs[id+".var."+input] = scopedRefs(scope, attr.References)
 				}
+				b.warnMultiplicity(id, block.Attributes)
 				start := len(b.order)
 				if err := b.load(ctx, child, id+".", childProviders, depth+1); errors.Is(err, errLimit) {
 					return err
@@ -219,6 +213,7 @@ func (b *builder) load(ctx context.Context, dir, scope string, inherited map[str
 					label += " @ " + version
 				}
 				n := &Node{ID: id, Type: "module", Label: label, Scope: scope, Attributes: block.Attributes, Badge: multiplicity(block.Attributes)}
+				b.warnMultiplicity(id, block.Attributes)
 				if awsModule(src) {
 					n.Region = childProviders["aws"]
 				}
@@ -403,6 +398,26 @@ func (b *builder) edges() {
 	})
 	for _, key := range keys {
 		b.graph.Edges = append(b.graph.Edges, Edge{From: key[0], To: key[1], Count: counts[key]})
+	}
+}
+
+func overrideFile(name string) bool {
+	base := strings.TrimSuffix(filepath.Base(name), ".json")
+	return base == "override.tf" || strings.HasSuffix(base, "_override.tf")
+}
+
+// warnMultiplicity records count or for_each expressions shown as ×? because
+// they are not evaluated.
+func (b *builder) warnMultiplicity(id string, attrs map[string]source.Attribute) {
+	for _, badge := range multiplicity(attrs) {
+		if badge != "×?" {
+			continue
+		}
+		key := "for_each"
+		if _, ok := attrs["count"]; ok {
+			key = "count"
+		}
+		b.graph.Warnings = append(b.graph.Warnings, id+": "+key+" is not evaluated; shown as ×?")
 	}
 }
 
