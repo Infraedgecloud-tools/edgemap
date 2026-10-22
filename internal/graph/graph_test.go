@@ -604,6 +604,29 @@ resource "aws_route_table_association" "edge" {
 	}
 }
 
+func TestVPCModuleCIDROutputsDoNotPlaceResources(t *testing.T) {
+	g := graphFromFiles(t, map[string]string{"main.tf": `
+provider "aws" { region = "eu-west-2" }
+module "vpc" { source = "terraform-aws-modules/vpc/aws" }
+resource "aws_lb" "web" { subnets = module.vpc.public_subnets }
+resource "aws_s3_bucket" "audit" {
+  tags = { private = module.vpc.private_subnets_cidr_blocks[0] }
+}
+`})
+	if n := requireNode(t, g, "aws_lb.web"); n.Container != "module.vpc.tier.public" {
+		t.Errorf("public_subnets placement = %q", n.Container)
+	}
+	for _, edge := range g.Edges {
+		if edge.From == "aws_s3_bucket.audit" && edge.To != "module.vpc" {
+			t.Errorf("CIDR output resolved to %s, want the module itself", edge.To)
+		}
+	}
+	requireGraphEdge(t, g, "aws_s3_bucket.audit", "module.vpc", 1)
+	if _, ok := g.Nodes["module.vpc.tier.private"]; ok {
+		t.Error("CIDR reference kept an otherwise empty private tier")
+	}
+}
+
 func TestManyCallsToOneModuleStayWithinBudget(t *testing.T) {
 	var root strings.Builder
 	root.WriteString(`provider "aws" { region = "eu-west-2" }` + "\n")

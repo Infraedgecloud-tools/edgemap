@@ -302,11 +302,13 @@ func (b *builder) resolve(ref string, seen map[string]bool) []string {
 	for candidate := ref; candidate != ""; {
 		if n := b.graph.Nodes[candidate]; n != nil {
 			if n.Type == "aws_vpc_module" {
-				suffix := strings.TrimPrefix(ref, candidate+".")
-				if strings.HasPrefix(suffix, "private_subnets") {
+				// Only the subnet ID outputs place resources; private_subnets_cidr_blocks
+				// and similar outputs are ordinary references to the module.
+				output, _, _ := strings.Cut(strings.TrimPrefix(ref, candidate+"."), ".")
+				switch output {
+				case "private_subnets":
 					return []string{candidate + ".tier.private"}
-				}
-				if strings.HasPrefix(suffix, "public_subnets") {
+				case "public_subnets":
 					return []string{candidate + ".tier.public"}
 				}
 			}
