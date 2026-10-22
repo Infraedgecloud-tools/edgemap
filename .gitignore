@@ -11,3 +11,9 @@
 *.tfvars.json
 
 /THIRD_PARTY_LICENSES/
+*.tfplan.json
+tfplan*
+*.plan
+crash.log
+crash.*.log
+.env
