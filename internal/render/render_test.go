@@ -1,6 +1,7 @@
 package render
 
 import (
+	"bytes"
 	"context"
 	"os"
 	"path/filepath"
@@ -51,7 +52,7 @@ func TestGolden(t *testing.T) {
 func TestSVGLayouts(t *testing.T) {
 	for _, layout := range []string{"elk", "dagre"} {
 		t.Run(layout, func(t *testing.T) {
-			svg, err := SVG(context.Background(), `a: "compute"; b: "data"; a -> b`, layout)
+			svg, err := SVG(context.Background(), `a: "compute"; b: "data"; a -> b`, layout, "")
 			if err != nil {
 				t.Fatal(err)
 			}
@@ -101,24 +102,34 @@ func TestD2TextIsLiteral(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if _, err := SVG(context.Background(), source, "elk"); err != nil {
+	if _, err := SVG(context.Background(), source, "elk", ""); err != nil {
 		t.Fatal(err)
 	}
 }
 
 func TestBundledIcon(t *testing.T) {
-	path := filepath.Join(t.TempDir(), "icon.svg")
+	dir := t.TempDir()
+	path := filepath.Join(dir, "icon.svg")
 	if err := os.WriteFile(path, []byte(`<svg xmlns="http://www.w3.org/2000/svg" width="16" height="16"><rect width="16" height="16" fill="red"/></svg>`), 0o600); err != nil {
 		t.Fatal(err)
 	}
 	g := &graph.Graph{Nodes: map[string]*graph.Node{"x": {ID: "x", Type: "test", Label: "test"}}}
-	source, err := Emit(g, Options{Icons: map[string]string{"test": path}})
+	source, err := Emit(g, Options{Icons: map[string]string{"test": "icon.svg"}})
 	if err != nil {
 		t.Fatal(err)
 	}
-	svg, err := SVG(context.Background(), source, "elk")
+	svg, err := SVG(context.Background(), source, "elk", dir)
 	if err != nil {
 		t.Fatal(err)
+	}
+	// The same icon from another cache location yields byte-identical output.
+	other := t.TempDir()
+	if err := os.Link(path, filepath.Join(other, "icon.svg")); err != nil {
+		t.Fatal(err)
+	}
+	again, err := SVG(context.Background(), source, "elk", other)
+	if err != nil || !bytes.Equal(svg, again) {
+		t.Fatalf("SVG depends on the icon directory: %v", err)
 	}
 	if !strings.Contains(string(svg), "data:image/svg+xml;base64,") {
 		t.Fatal("icon not bundled")

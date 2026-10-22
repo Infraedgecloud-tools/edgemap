@@ -3,6 +3,7 @@ package render
 import (
 	"context"
 	"fmt"
+	"path/filepath"
 
 	"github.com/d2lang/d2/d2graph"
 	"github.com/d2lang/d2/d2layouts/d2dagrelayout"
@@ -15,7 +16,9 @@ import (
 	"github.com/d2lang/d2/lib/textmeasure"
 )
 
-func SVG(ctx context.Context, input, layout string) ([]byte, error) {
+// SVG compiles D2 source and inlines icons. Relative icon references are
+// resolved against iconDir.
+func SVG(ctx context.Context, input, layout, iconDir string) ([]byte, error) {
 	if layout != "elk" && layout != "dagre" {
 		return nil, fmt.Errorf("layout must be elk or dagre")
 	}
@@ -44,7 +47,7 @@ func SVG(ctx context.Context, input, layout string) ([]byte, error) {
 	if err != nil {
 		return nil, fmt.Errorf("render SVG: %w", err)
 	}
-	bundled, err := imgbundler.BundleLocal(ctx, simplelog.Make(nil, nil, nil), "", svg, false)
+	bundled, err := imgbundler.BundleLocal(ctx, simplelog.Make(nil, nil, nil), filepath.Join(iconDir, "diagram.d2"), svg, false)
 	if err != nil {
 		return nil, fmt.Errorf("bundle local icons: %w", err)
 	}
