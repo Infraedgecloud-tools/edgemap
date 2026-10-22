@@ -1,12 +1,16 @@
 name: Release
 on:
   push:
-    tags: ['v*']
+    tags: ['v[0-9]*']
 permissions:
   contents: read
+concurrency:
+  group: release-${{ github.ref }}
+  cancel-in-progress: false
 jobs:
   release:
     runs-on: ubuntu-latest
+    timeout-minutes: 30
     permissions:
       contents: write
     steps:
@@ -14,20 +18,38 @@ jobs:
         with:
           fetch-depth: 0
           persist-credentials: false
+      - name: Require the tag to point at main
+        run: git merge-base --is-ancestor "$GITHUB_SHA" origin/main
+      # Candidates (tags with a suffix such as -rc.1) never update the tap. A final
+      # release must not publish binaries and then fail on a missing tap token.
+      - name: Require the tap token for final releases
+        if: ${{ !contains(github.ref_name, '-') }}
+        env:
+          TAP_TOKEN: ${{ secrets.TAP_TOKEN }}
+        run: test -n "$TAP_TOKEN" || { echo '::error::TAP_TOKEN secret is not configured'; exit 1; }
       - uses: actions/setup-go@924ae3a1cded613372ab5595356fb5720e22ba16 # v6
         with:
           go-version: '1.27.3'
       - name: Test release source
         run: go test -race ./...
+      # go-licenses runs third-party code; keep it away from the publishing tokens.
+      - name: Generate third-party notices
+        run: bash scripts/licenses.sh
       - uses: goreleaser/goreleaser-action@e435ccd777264be153ace6237001ef4d979d3a7a # v6
         with:
           version: v2.18.3
-          args: release --clean
+          args: release --clean --skip=before
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           TAP_TOKEN: ${{ secrets.TAP_TOKEN }}
+      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
+        with:
+          name: homebrew-cask
+          path: dist/homebrew/Casks/edgemap.rb
+          if-no-files-found: error
   brew-smoke:
     needs: release
+    timeout-minutes: 20
     strategy:
       fail-fast: false
       matrix:
@@ -37,22 +59,38 @@ jobs:
       - uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09 # v5
         with:
           persist-credentials: false
+      - uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093 # v4
+        with:
+          name: homebrew-cask
+          path: ${{ runner.temp }}/cask
       - name: Install and render with Homebrew
         env:
           EXPECTED_VERSION: ${{ github.ref_name }}
+          CANDIDATE: ${{ contains(github.ref_name, '-') }}
+          CASK_DIR: ${{ runner.temp }}/cask
         shell: bash
         run: |
           set -euo pipefail
           if [[ -x /home/linuxbrew/.linuxbrew/bin/brew ]]; then
             eval "$(/home/linuxbrew/.linuxbrew/bin/brew shellenv)"
           fi
-          brew install --cask Infraedgecloud-tools/tap/edgemap
+          if [[ "$CANDIDATE" == true ]]; then
+            # The generated cask downloads the published candidate assets.
+            brew tap-new --no-git edgemap/candidate
+            tap="$(brew --repository edgemap/candidate)"
+            mkdir -p "$tap/Casks"
+            cp "$CASK_DIR/edgemap.rb" "$tap/Casks/edgemap.rb"
+            brew install --cask edgemap/candidate/edgemap
+          else
+            brew install --cask Infraedgecloud-tools/tap/edgemap
+          fi
           test "$(edgemap version)" = "${EXPECTED_VERSION#v}"
           edgemap render testdata/multi-az --no-icons
           test -s diagram.svg
 
   action-smoke:
     needs: release
+    timeout-minutes: 20
     strategy:
       fail-fast: false
       matrix:
@@ -72,3 +110,8 @@ jobs:
           directory: testdata/local-modules
           version: ${{ github.ref_name }}
           no-icons: 'true'
+      # Default inputs: an empty argument list and real icon fetches on each OS.
+      - uses: ./
+        with:
+          directory: testdata/multi-az
+          version: ${{ github.ref_name }}
