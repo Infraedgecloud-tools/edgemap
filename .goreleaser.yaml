@@ -1,5 +1,7 @@
 version: 2
 project_name: edgemap
+# The release workflow runs scripts/licenses.sh in its own step, without secrets,
+# and passes --skip=before. Local snapshots generate the notices here.
 before:
   hooks:
     - bash scripts/licenses.sh
@@ -39,11 +41,13 @@ homebrew_casks:
     repository:
       owner: Infraedgecloud-tools
       name: homebrew-tap
-      token: '{{ .Env.TAP_TOKEN }}'
+      token: '{{ envOrDefault "TAP_TOKEN" "" }}'
     directory: Casks
     homepage: https://github.com/Infraedgecloud-tools/edgemap
     description: Static Terraform architecture diagrams without cloud credentials
-    skip_upload: false
+    # Release candidates never update the public tap; the workflow smoke-tests
+    # their generated cask from a local tap instead.
+    skip_upload: auto
     hooks:
       post:
         install: |

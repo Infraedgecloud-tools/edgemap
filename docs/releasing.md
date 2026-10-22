@@ -33,16 +33,15 @@ A snapshot build verifies binaries, not complete archives or tap installation. T
 goreleaser release --snapshot --clean --skip=publish,validate
 ```
 
-The configured `before` hook runs `scripts/licenses.sh`. It generates `THIRD_PARTY_LICENSES` with pinned `go-licenses`, then adds embedded font, layout and other notices the Go import scanner cannot discover. D2 0.9 uses the native Go ELK port; its EPL and additional notices are copied explicitly. Check that every archive includes this directory, `LICENSE`, `README.md` and the appropriate binary. Check archives against `dist/checksums.txt` and smoke-test a host-compatible binary. Cross-compilation alone does not validate runtime behavior on another OS/architecture.
+`scripts/licenses.sh` generates `THIRD_PARTY_LICENSES` with pinned `go-licenses` and keeps only licence and notice files. `go-licenses` copies whole MPL-2.0 source trees (over 100 MB), and MPL-2.0 section 3.2(a) allows pointing recipients to the source instead. `SOURCES.md` lists every bundled module version and how to fetch its source from the module proxy. The script adds the notices an import scanner cannot discover: the Go standard library licence, the OFL text with the copyright lines of the embedded fonts, D2's layout and renderer notices, and the native Go ELK port's EPL. Locally the GoReleaser `before` hook runs it. The release workflow runs it as a separate step with no secrets in its environment and passes `--skip=before`, so `go-licenses` never sees the publishing tokens. Archive entries use the commit date as their mtime, so rebuilding a commit reproduces the same archives and `checksums.txt`. Check that every archive includes this directory, `LICENSE`, `README.md` and the appropriate binary. Check archives against `dist/checksums.txt` and smoke-test a host-compatible binary. Cross-compilation alone does not validate runtime behavior on another OS/architecture.
 
 ## Release candidate, then final
 
-After reviewed changes reach protected, green `main`, tag that exact commit as `v0.1.0-rc.1` and push the tag. `.github/workflows/release.yml` runs on `v*` tags and invokes `goreleaser release --clean`; prerelease status is inferred from the tag.
+After reviewed changes reach protected, green `main`, tag that exact commit as `v0.1.0-rc.1` and push the tag. `.github/workflows/release.yml` runs on `v[0-9]*` tags. It refuses a tag that is not on `main`, runs race tests, generates notices and invokes `goreleaser release --clean --skip=before`; prerelease status is inferred from the tag. A final tag (no suffix) also fails before publishing anything if the `TAP_TOKEN` secret is missing.
 
-The configuration publishes a Homebrew cask into the tap's `Casks` directory. Its post-install quarantine removal hook runs only on macOS for these unsigned binaries. The dependent `brew-smoke` matrix runs on macOS and Linux and executes (with `EXPECTED_VERSION` set to the triggering tag):
+A final release publishes a Homebrew cask into the tap's `Casks` directory. A candidate does not (`skip_upload: auto`), so a candidate never replaces the stable cask. Its generated cask is uploaded as the `homebrew-cask` workflow artifact instead. The cask's post-install quarantine removal hook runs only on macOS for these unsigned binaries. The dependent `brew-smoke` matrix runs on macOS and Linux. For a candidate it installs the generated cask from a throwaway local tap, which downloads the published candidate assets. For a final release it installs from the public tap. Then it checks (with `EXPECTED_VERSION` set to the triggering tag):
 
 ```sh
-brew install --cask Infraedgecloud-tools/tap/edgemap
 test "$(edgemap version)" = "${EXPECTED_VERSION#v}"
 edgemap render testdata/multi-az --no-icons
 test -s diagram.svg
