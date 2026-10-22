@@ -18,7 +18,17 @@ archives:
     format_overrides:
       - goos: windows
         formats: [zip]
-    files: [LICENSE, README.md, THIRD_PARTY_LICENSES/**/*]
+    # Fixed mtimes keep archives and checksums.txt identical across rebuilds.
+    files:
+      - src: LICENSE
+        info: {mtime: '{{ .CommitDate }}'}
+      - src: README.md
+        info: {mtime: '{{ .CommitDate }}'}
+      # **/* does not match files directly under THIRD_PARTY_LICENSES.
+      - src: THIRD_PARTY_LICENSES/SOURCES.md
+        info: {mtime: '{{ .CommitDate }}'}
+      - src: THIRD_PARTY_LICENSES/**/*
+        info: {mtime: '{{ .CommitDate }}'}
 checksum:
   name_template: checksums.txt
 
