@@ -104,3 +104,18 @@ func TestModuleAggregationAndActionValidation(t *testing.T) {
 		}
 	}
 }
+
+func TestSummaryOmitsZeroCounts(t *testing.T) {
+	for _, tc := range []struct {
+		c    counts
+		want string
+	}{
+		{counts{unchanged: 3}, "×3"},
+		{counts{create: 1, delete: 1, unchanged: 1}, "×3 · create 1 · destroy 1 · unchanged 1"},
+		{counts{update: 2}, "×3 · change 2"},
+	} {
+		if got := summary("×3", &tc.c); got != tc.want {
+			t.Errorf("summary(%+v) = %q, want %q", tc.c, got, tc.want)
+		}
+	}
+}
