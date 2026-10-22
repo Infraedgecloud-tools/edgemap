@@ -3,6 +3,7 @@ package graph
 import (
 	"context"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"os"
 	"path/filepath"
@@ -21,7 +22,20 @@ type builder struct {
 	inputs     map[string][]string
 	modules    map[string]string
 	active     map[string]bool
+	order      []string
+	loads      int
 }
+
+// Static limits keep hostile or generated configuration from exhausting memory or time.
+const (
+	maxDepth       = 32
+	maxNodes       = 10000
+	maxModuleLoads = 10000
+)
+
+// errLimit marks a configuration that exceeds a static limit. Unlike other module
+// errors it aborts the whole build instead of becoming a warning.
+var errLimit = errors.New("static analysis limit exceeded")
 
 func Build(ctx context.Context, input source.Source, dir string) (*Graph, error) {
 	b := builder{expansions: map[string][]string{}, moduleDeps: map[string][]string{}, graph: &Graph{Nodes: map[string]*Node{}}, source: input, outputs: map[string][]string{}, inputs: map[string][]string{}, modules: map[string]string{}, active: map[string]bool{}}
@@ -64,8 +78,11 @@ func Build(ctx context.Context, input source.Source, dir string) (*Graph, error)
 }
 
 func (b *builder) load(ctx context.Context, dir, scope string, inherited map[string]string, depth int) error {
-	if depth > 32 {
-		return fmt.Errorf("module nesting exceeds 32 levels")
+	if depth > maxDepth {
+		return fmt.Errorf("module nesting exceeds %d levels", maxDepth)
+	}
+	if b.loads++; b.loads > maxModuleLoads {
+		return fmt.Errorf("%w: more than %d module calls expanded", errLimit, maxModuleLoads)
 	}
 	real, err := filepath.EvalSymlinks(dir)
 	if err != nil {
@@ -156,7 +173,7 @@ func (b *builder) load(ctx context.Context, dir, scope string, inherited map[str
 					b.graph.Warnings = append(b.graph.Warnings, id+": static expression retained for "+key)
 				}
 			}
-			b.graph.Nodes[id] = n
+			b.add(n)
 		case "module":
 			name := block.Labels[0]
 			id := scope + "module." + name
@@ -180,13 +197,13 @@ func (b *builder) load(ctx context.Context, dir, scope string, inherited map[str
 				for input, attr := range block.Attributes {
 					b.inputs[id+".var."+input] = scopedRefs(scope, attr.References)
 				}
-				if err := b.load(ctx, child, id+".", childProviders, depth+1); err != nil {
+				start := len(b.order)
+				if err := b.load(ctx, child, id+".", childProviders, depth+1); errors.Is(err, errLimit) {
+					return err
+				} else if err != nil {
 					b.graph.Warnings = append(b.graph.Warnings, id+": "+err.Error())
 				}
-				for _, childID := range b.graph.IDs() {
-					if !strings.HasPrefix(childID, id+".") {
-						continue
-					}
+				for _, childID := range b.order[start:] {
 					b.expansions[id] = append(b.expansions[id], childID)
 					b.moduleDeps[childID] = append(b.moduleDeps[childID], scopedRefs(scope, block.Attributes["depends_on"].References)...)
 					for _, badge := range multiplicity(block.Attributes) {
@@ -203,12 +220,12 @@ func (b *builder) load(ctx context.Context, dir, scope string, inherited map[str
 					n.Type = "aws_vpc_module"
 					n.Group = true
 				}
-				b.graph.Nodes[id] = n
+				b.add(n)
 				b.graph.Warnings = append(b.graph.Warnings, id+": module not installed; collapsed")
 			}
 		}
-		if len(b.graph.Nodes) > 10000 {
-			return fmt.Errorf("configuration exceeds 10000 nodes")
+		if len(b.graph.Nodes) > maxNodes {
+			return fmt.Errorf("%w: configuration exceeds %d nodes", errLimit, maxNodes)
 		}
 	}
 	return nil
@@ -222,6 +239,13 @@ func resolveLiteral(attr source.Attribute, locals map[string]source.Attribute) s
 		}
 	}
 	return attr
+}
+
+func (b *builder) add(n *Node) {
+	if b.graph.Nodes[n.ID] == nil {
+		b.order = append(b.order, n.ID)
+	}
+	b.graph.Nodes[n.ID] = n
 }
 
 // manifestKey converts module.a.module.b into the modules.json key a.b.

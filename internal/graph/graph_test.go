@@ -2,6 +2,8 @@ package graph
 
 import (
 	"context"
+	"errors"
+	"fmt"
 	"os"
 	"path/filepath"
 	"slices"
@@ -550,4 +552,64 @@ func TestLBNestedSubnetMapping(t *testing.T) {
 	if g.Nodes["aws_lb.app"].Container != "aws_vpc.app.tier.private" {
 		t.Fatal("LB mapping lost")
 	}
+}
+
+func TestModuleFanOutStopsAtLoadBudget(t *testing.T) {
+	files := map[string]string{"main.tf": `module "c" { source = "./l0" }`}
+	for level := 0; level < 12; level++ {
+		next := fmt.Sprintf("../l%d", level+1)
+		files[fmt.Sprintf("l%d/main.tf", level)] = fmt.Sprintf(`
+module "a" { source = %q }
+module "b" { source = %q }
+module "c" { source = %q }
+`, next, next, next)
+	}
+	files["l12/main.tf"] = `variable "unused" {}`
+	dir := t.TempDir()
+	for name, text := range files {
+		path := filepath.Join(dir, name)
+		if err := os.MkdirAll(filepath.Dir(path), 0o700); err != nil {
+			t.Fatal(err)
+		}
+		writeGraphInput(t, filepath.Dir(path), filepath.Base(path), text)
+	}
+	_, err := Build(t.Context(), parse.Terraform{}, dir)
+	if !errors.Is(err, errLimit) {
+		t.Fatalf("3^12 module fan-out error = %v, want load limit", err)
+	}
+}
+
+func TestSeparateInternetRouteMakesSubnetPublic(t *testing.T) {
+	g := graphFromFiles(t, map[string]string{"main.tf": `
+provider "aws" { region = "eu-west-2" }
+resource "aws_vpc" "main" { cidr_block = "10.0.0.0/16" }
+resource "aws_internet_gateway" "igw" { vpc_id = aws_vpc.main.id }
+resource "aws_route_table" "edge" { vpc_id = aws_vpc.main.id }
+resource "aws_route" "default" {
+  route_table_id         = aws_route_table.edge.id
+  destination_cidr_block = "0.0.0.0/0"
+  gateway_id             = aws_internet_gateway.igw.id
+}
+resource "aws_subnet" "edge" {
+  vpc_id = aws_vpc.main.id
+  tags   = { Name = "private-looking" }
+}
+resource "aws_route_table_association" "edge" {
+  subnet_id      = aws_subnet.edge.id
+  route_table_id = aws_route_table.edge.id
+}
+`})
+	if n := requireNode(t, g, "aws_subnet.edge"); n.Container != "aws_vpc.main.tier.public" {
+		t.Errorf("subnet behind aws_route to IGW = %q, want public tier", n.Container)
+	}
+}
+
+func TestManyCallsToOneModuleStayWithinBudget(t *testing.T) {
+	var root strings.Builder
+	root.WriteString(`provider "aws" { region = "eu-west-2" }` + "\n")
+	for i := 0; i < 1100; i++ {
+		fmt.Fprintf(&root, "module \"m%d\" { source = \"./m\" }\n", i)
+	}
+	g := graphFromFiles(t, map[string]string{"main.tf": root.String(), "m/main.tf": `resource "aws_sqs_queue" "q" {}`})
+	requireNode(t, g, "module.m1099.aws_sqs_queue.q")
 }
