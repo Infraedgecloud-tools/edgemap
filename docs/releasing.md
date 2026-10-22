@@ -2,14 +2,17 @@
 
 ## Current status
 
-Local snapshot builds and archive packaging passed for Linux, macOS and Windows on amd64/arm64. Archive checksums and embedded licence notices were checked, and `goreleaser check` accepts the current configuration. This is not a published release or proof of installation on those platforms.
-
-Upstream writes returned HTTP 403 during this build session. PR publication/merging, `main` protection, the release-candidate tag, Homebrew smoke tests and the final release remain blocked. No release, tap installation or successful remote CI run should be inferred from the local files.
+- `v0.1.0-rc.1` was published on 2026-10-22 from `main` at `4571514`: https://github.com/Infraedgecloud-tools/edgemap/releases/tag/v0.1.0-rc.1
+- Every candidate gate passed in [release run 39705613006](https://github.com/Infraedgecloud-tools/edgemap/actions/runs/39705613006):
+  - release;
+  - Homebrew install, version check and render on macOS and Linux, using the generated cask from a local tap;
+  - the Action on Linux, macOS and Windows, three calls each.
+- `v0.1.0` is not published. It waits for the `TAP_TOKEN` secret described below. Without it the workflow stops before publishing anything.
 
 ## Prerequisites
 
-- Restore write access to `Infraedgecloud-tools/edgemap`, publish the sequential branches/PRs, review them and confirm required CI is green before merging. Protect `main` with required checks and no required approvals, as specified by the build brief.
-- Create or grant access to `Infraedgecloud-tools/homebrew-tap`.
+- `main` is protected: the `verify` check is required (strict), changes arrive by pull request with no required approvals, history is linear, and administrators are included.
+- `Infraedgecloud-tools/homebrew-tap` exists. It stays empty until the first final release.
 - Store a fine-grained `TAP_TOKEN` Actions secret with repository **Contents: write** access scoped to the tap. The workflow's `GITHUB_TOKEN` has Contents: write only for the source repository; it cannot publish to the separate tap.
 - Use the versions pinned in CI: Go 1.27.3 and GoReleaser 2.18.3. The release workflow runs race-enabled tests before GoReleaser.
 
