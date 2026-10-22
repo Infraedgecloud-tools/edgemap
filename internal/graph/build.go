@@ -152,10 +152,13 @@ func (b *builder) load(ctx context.Context, dir, scope string, inherited map[str
 			if provider == "" {
 				provider = "aws"
 			}
-			region := regions[provider]
-			if region == "" {
-				region = "unknown"
-				b.graph.Warnings = append(b.graph.Warnings, id+": unresolved provider region")
+			// Regions only drive AWS grouping; other providers stay plain shapes.
+			region := ""
+			if strings.HasPrefix(block.Labels[0], "aws_") {
+				if region = regions[provider]; region == "" {
+					region = "unknown"
+					b.graph.Warnings = append(b.graph.Warnings, id+": unresolved provider region")
+				}
 			}
 			n := &Node{ID: id, Type: block.Labels[0], Label: block.Labels[1], Data: block.Kind == "data", Region: region, Scope: scope, Attributes: block.Attributes}
 			if count, ok := block.Attributes["count"]; ok {
@@ -215,7 +218,10 @@ func (b *builder) load(ctx context.Context, dir, scope string, inherited map[str
 				if version != "" {
 					label += " @ " + version
 				}
-				n := &Node{ID: id, Type: "module", Label: label, Region: childProviders["aws"], Scope: scope, Attributes: block.Attributes, Badge: multiplicity(block.Attributes)}
+				n := &Node{ID: id, Type: "module", Label: label, Scope: scope, Attributes: block.Attributes, Badge: multiplicity(block.Attributes)}
+				if awsModule(src) {
+					n.Region = childProviders["aws"]
+				}
 				if src == "terraform-aws-modules/vpc/aws" || strings.Contains(src, "/terraform-aws-vpc") {
 					n.Type = "aws_vpc_module"
 					n.Group = true
@@ -246,6 +252,29 @@ func (b *builder) add(n *Node) {
 		b.order = append(b.order, n.ID)
 	}
 	b.graph.Nodes[n.ID] = n
+}
+
+// awsModule reports whether a collapsed module source is evidently AWS: a
+// registry address whose provider segment is aws (namespace/name/aws, optionally
+// behind a registry hostname), or a repository named terraform-aws-*.
+func awsModule(src string) bool {
+	src, _, _ = strings.Cut(src, "?")
+	// Set any URL scheme aside so that "//" marks only a subdirectory.
+	remote := false
+	if i := strings.Index(src, "://"); i >= 0 {
+		src, remote = src[i+3:], true
+	}
+	address, _, _ := strings.Cut(src, "//")
+	if !remote && !strings.Contains(address, ":") {
+		parts := strings.Split(address, "/")
+		namespace := len(parts) == 3 && !strings.Contains(parts[0], ".")
+		hosted := len(parts) == 4 && strings.Contains(parts[0], ".")
+		if (namespace || hosted) && parts[len(parts)-1] == "aws" {
+			return true
+		}
+	}
+	repo := address[strings.LastIndexAny(address, "/:")+1:]
+	return strings.HasPrefix(strings.TrimSuffix(repo, ".git"), "terraform-aws-")
 }
 
 // manifestKey converts module.a.module.b into the modules.json key a.b.

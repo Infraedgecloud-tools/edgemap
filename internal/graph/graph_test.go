@@ -652,6 +652,34 @@ resource "aws_subnet" "s" {
 	}
 }
 
+func TestNonAWSProvidersStayOutOfAWSRegions(t *testing.T) {
+	g := graphFromFiles(t, map[string]string{"main.tf": `
+provider "aws" { region = "eu-west-1" }
+provider "google" { alias = "west" }
+resource "google_compute_instance" "a" { provider = google.west }
+module "gcp" { source = "terraform-google-modules/network/google" }
+module "eks" { source = "terraform-aws-modules/eks/aws" }
+module "private" { source = "app.terraform.io/acme/queue/aws//modules/sqs" }
+module "git" { source = "git::https://example.com/acme/terraform-aws-cache.git?ref=v1" }
+`})
+	for id, want := range map[string]string{
+		"google_compute_instance.a": "",
+		"module.gcp":                "",
+		"module.eks":                "region:eu-west-1",
+		"module.private":            "region:eu-west-1",
+		"module.git":                "region:eu-west-1",
+	} {
+		if got := requireNode(t, g, id).Container; got != want {
+			t.Errorf("%s container = %q, want %q", id, got, want)
+		}
+	}
+	for _, warning := range g.Warnings {
+		if strings.Contains(warning, "google_compute_instance.a: unresolved provider region") {
+			t.Errorf("non-AWS resource warning: %s", warning)
+		}
+	}
+}
+
 func TestManyCallsToOneModuleStayWithinBudget(t *testing.T) {
 	var root strings.Builder
 	root.WriteString(`provider "aws" { region = "eu-west-2" }` + "\n")
@@ -660,4 +688,25 @@ func TestManyCallsToOneModuleStayWithinBudget(t *testing.T) {
 	}
 	g := graphFromFiles(t, map[string]string{"main.tf": root.String(), "m/main.tf": `resource "aws_sqs_queue" "q" {}`})
 	requireNode(t, g, "module.m1099.aws_sqs_queue.q")
+}
+
+func TestAWSModuleSources(t *testing.T) {
+	for src, want := range map[string]bool{
+		"terraform-aws-modules/vpc/aws":                                    true,
+		"terraform-aws-modules/eks/aws//modules/karpenter":                 true,
+		"app.terraform.io/acme/queue/aws":                                  true,
+		"git::https://example.com/acme/terraform-aws-cache.git?ref=v1":     true,
+		"github.com/acme/terraform-aws-cache":                              true,
+		"git@github.com:acme/terraform-aws-cache.git":                      true,
+		"git::https://example.com/acme/terraform-aws-cache.git//sub?ref=1": true,
+		"terraform-google-modules/network/google":                          false,
+		"github.com/acme/aws":                                              false,
+		"gitlab.com/acme/aws":                                              false,
+		"terraform-google-modules/x/google//modules/terraform-aws-peer":    false,
+		"git::https://example.com/acme/platform.git//terraform-aws-peer":   false,
+	} {
+		if got := awsModule(src); got != want {
+			t.Errorf("awsModule(%q) = %v, want %v", src, got, want)
+		}
+	}
 }
