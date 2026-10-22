@@ -119,7 +119,8 @@ Once v0.1.0 is published, the intended Homebrew command is:
 brew install Infraedgecloud-tools/tap/edgemap
 ```
 
-The composite Action downloads an exact release and verifies its archive checksum.
+The composite Action downloads an exact release and checks the archive against that
+release's `checksums.txt`. This detects a corrupted download, not a tampered release.
 After publishing, use it following `actions/checkout`, with `contents: read`:
 
 ```yaml
