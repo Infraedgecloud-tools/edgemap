@@ -61,8 +61,8 @@ func TestHiddenContainerReparentsChildren(t *testing.T) {
 		"subnet":                {ID: "subnet", Type: "aws_subnet", Container: "tier"},
 	}}
 	filtered := Apply(g, Options{})
-	if filtered.Nodes["tier"].Container != "region" {
-		t.Fatal("dangling hidden parent")
+	if filtered.Nodes["data.aws_vpc.existing"] == nil || filtered.Nodes["tier"].Container != "data.aws_vpc.existing" {
+		t.Fatal("data-source VPC holding resources was hidden, leaving its tier outside any VPC")
 	}
 	for _, n := range filtered.Nodes {
 		if n.Container != "" && filtered.Nodes[n.Container] == nil {
@@ -88,5 +88,23 @@ func TestNonAWSUngrouped(t *testing.T) {
 	}
 	if g.Nodes["random_id.suffix"].Container != "" {
 		t.Fatal("non-AWS resource grouped")
+	}
+}
+
+func TestEmptyDataVPCIsPruned(t *testing.T) {
+	g := &graph.Graph{Nodes: map[string]*graph.Node{
+		"region":            {ID: "region", Type: "region", Group: true},
+		"data.aws_vpc.peer": {ID: "data.aws_vpc.peer", Type: "aws_vpc", Data: true, Group: true, Container: "region"},
+		"tier":              {ID: "tier", Type: "tier", Group: true, Container: "data.aws_vpc.peer"},
+	}}
+	g.Nodes["aws_route53_zone_association.a"] = &graph.Node{ID: "aws_route53_zone_association.a", Type: "aws_route53_zone_association", Container: "global"}
+	g.Nodes["global"] = &graph.Node{ID: "global", Type: "global", Group: true}
+	g.Edges = []graph.Edge{{From: "aws_route53_zone_association.a", To: "data.aws_vpc.peer", Count: 1}}
+	got := Apply(g, Options{})
+	if got.Nodes["data.aws_vpc.peer"] != nil || got.Nodes["tier"] != nil || got.Nodes["region"] != nil || len(got.Edges) != 0 {
+		t.Fatalf("data VPC with only an incoming edge remains: %v %v", got.IDs(), got.Edges)
+	}
+	if got := Apply(g, Options{ShowData: true}); got.Nodes["data.aws_vpc.peer"] == nil {
+		t.Fatal("--show-data hid a data VPC")
 	}
 }

@@ -73,6 +73,15 @@ func TestFixtureContainment(t *testing.T) {
 			},
 		},
 		{
+			"existing-vpc",
+			map[string]string{
+				"data.aws_vpc.shared": "region:eu-west-1",
+				"aws_subnet.web":      "data.aws_vpc.shared.tier.public",
+				"aws_lb.web":          "data.aws_vpc.shared.tier.public",
+				"aws_instance.api":    "data.aws_vpc.shared.tier.private",
+			},
+		},
+		{
 			"broken",
 			map[string]string{"aws_vpc.valid": "region:eu-west-2"},
 		},

@@ -14,7 +14,9 @@ func Apply(input *graph.Graph, options Options) *graph.Graph {
 	result := &graph.Graph{Nodes: map[string]*graph.Node{}, Warnings: append([]string(nil), input.Warnings...)}
 	hidden := map[string]bool{}
 	for id, node := range input.Nodes {
-		hidden[id] = (node.Data && !options.ShowData) || (iam(node.Type) && !options.ShowIAM) || (sg(node.Type) && !options.ShowSG)
+		// A data-source VPC is still the real container of the resources placed in it;
+		// it is hidden only when nothing visible remains inside (pruned below).
+		hidden[id] = (node.Data && !node.Group && !options.ShowData) || (iam(node.Type) && !options.ShowIAM) || (sg(node.Type) && !options.ShowSG)
 	}
 	outgoing := map[string][]string{}
 	for _, edge := range input.Edges {
@@ -73,11 +75,13 @@ func Apply(input *graph.Graph, options Options) *graph.Graph {
 			result.Edges = append(result.Edges, edge)
 		}
 	}
-	// Hide empty synthetic containers, but preserve real VPCs.
+	// Hide empty synthetic and data-source containers, but preserve real VPCs.
+	// A data-source VPC is kept only for what it contains, not for edges to it.
 	for {
-		used := map[string]bool{}
+		used, contains := map[string]bool{}, map[string]bool{}
 		for _, n := range result.Nodes {
 			used[n.Container] = true
+			contains[n.Container] = true
 		}
 		for _, e := range result.Edges {
 			used[e.From] = true
@@ -85,7 +89,8 @@ func Apply(input *graph.Graph, options Options) *graph.Graph {
 		}
 		removed := false
 		for id, n := range result.Nodes {
-			if n.Group && !used[id] && (n.Type == "region" || n.Type == "other" || n.Type == "tier" || n.Type == "global") {
+			synthetic := n.Type == "region" || n.Type == "other" || n.Type == "tier" || n.Type == "global"
+			if n.Group && (synthetic && !used[id] || n.Data && !options.ShowData && !contains[id]) {
 				delete(result.Nodes, id)
 				removed = true
 			}
@@ -94,6 +99,13 @@ func Apply(input *graph.Graph, options Options) *graph.Graph {
 			break
 		}
 	}
+	edges := result.Edges[:0]
+	for _, e := range result.Edges {
+		if result.Nodes[e.From] != nil && result.Nodes[e.To] != nil {
+			edges = append(edges, e)
+		}
+	}
+	result.Edges = edges
 	return result
 }
 
