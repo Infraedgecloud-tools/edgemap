@@ -163,8 +163,7 @@ func (b *builder) load(ctx context.Context, dir, scope string, inherited map[str
 			src := textAttr(block.Attributes, "source")
 			version := textAttr(block.Attributes, "version")
 			local := strings.HasPrefix(src, "./") || strings.HasPrefix(src, "../")
-			key := strings.ReplaceAll(strings.TrimSuffix(id, "."), "module.", "")
-			installed := b.modules[key]
+			installed := b.modules[manifestKey(id)]
 			childProviders := map[string]string{"aws": regions["aws"]}
 			for key, provider := range block.Attributes["providers"].Bindings {
 				region := regions[provider]
@@ -223,6 +222,17 @@ func resolveLiteral(attr source.Attribute, locals map[string]source.Attribute) s
 		}
 	}
 	return attr
+}
+
+// manifestKey converts module.a.module.b into the modules.json key a.b.
+// Module names may themselves contain "module", so split rather than replace.
+func manifestKey(id string) string {
+	parts := strings.Split(id, ".")
+	names := make([]string, 0, len(parts)/2)
+	for i := 1; i < len(parts); i += 2 {
+		names = append(names, parts[i])
+	}
+	return strings.Join(names, ".")
 }
 
 func scopedRefs(scope string, refs []string) []string {

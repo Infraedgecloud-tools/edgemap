@@ -360,6 +360,38 @@ output "subnet_id" { value = aws_subnet.public.id }
 	}
 }
 
+func TestNestedInstalledModuleNamesContainingModule(t *testing.T) {
+	g := graphFromFiles(t, map[string]string{
+		"main.tf": `
+provider "aws" { region = "eu-west-2" }
+module "submodule" { source = "git::https://example.com/outer.git" }
+`,
+		".terraform/modules/modules.json": `{"Modules":[
+  {"Key":"","Dir":"."},
+  {"Key":"submodule","Dir":".terraform/modules/submodule"},
+  {"Key":"submodule.network_module","Dir":".terraform/modules/submodule.network_module"}
+]}`,
+		".terraform/modules/submodule/main.tf":                `module "network_module" { source = "git::https://example.com/inner.git" }`,
+		".terraform/modules/submodule.network_module/main.tf": `resource "aws_vpc" "main" { cidr_block = "10.0.0.0/16" }`,
+	})
+	requireNode(t, g, "module.submodule.module.network_module.aws_vpc.main")
+	if _, collapsed := g.Nodes["module.submodule.module.network_module"]; collapsed {
+		t.Error("installed nested module remained collapsed")
+	}
+}
+
+func TestManifestKey(t *testing.T) {
+	for id, want := range map[string]string{
+		"module.a":                                 "a",
+		"module.submodule.module.inner":            "submodule.inner",
+		"module.x_module.module.module_y.module.z": "x_module.module_y.z",
+	} {
+		if got := manifestKey(id); got != want {
+			t.Errorf("manifestKey(%q) = %q, want %q", id, got, want)
+		}
+	}
+}
+
 func TestNestedOutputAndInputForwarding(t *testing.T) {
 	g := graphFromFiles(t, map[string]string{
 		"main.tf": `
