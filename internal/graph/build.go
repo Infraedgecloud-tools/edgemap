@@ -218,7 +218,7 @@ func (b *builder) load(ctx context.Context, dir, scope string, inherited map[str
 				if awsModule(src) {
 					n.Region = childProviders["aws"]
 				}
-				if src == "terraform-aws-modules/vpc/aws" || strings.Contains(src, "/terraform-aws-vpc") {
+				if vpcModule(src) {
 					n.Type = "aws_vpc_module"
 					n.Group = true
 				}
@@ -264,27 +264,75 @@ func (b *builder) add(n *Node) {
 	b.graph.Nodes[n.ID] = n
 }
 
+// moduleAddress strips a module source down to the part that names the module.
+// It removes the query string (a ?ref= or ?depth= argument), sets any URL scheme
+// aside so that "//" marks only a subdirectory, and splits that subdirectory off.
+//
+// remote reports whether a scheme was present, which is what distinguishes a
+// registry address from a URL that merely has the same number of segments.
+func moduleAddress(src string) (address, subdir string, remote bool) {
+	src, _, _ = strings.Cut(src, "?")
+	if i := strings.Index(src, "://"); i >= 0 {
+		src, remote = src[i+3:], true
+	}
+	address, subdir, _ = strings.Cut(src, "//")
+	return address, subdir, remote
+}
+
+// registryParts returns a registry address as namespace, name, provider, with
+// any registry hostname already dropped, or nil if the address is not one.
+func registryParts(address string, remote bool) []string {
+	if remote || strings.Contains(address, ":") {
+		return nil
+	}
+	parts := strings.Split(address, "/")
+	switch {
+	case len(parts) == 3 && !strings.Contains(parts[0], "."):
+		return parts
+	case len(parts) == 4 && strings.Contains(parts[0], "."):
+		return parts[1:]
+	}
+	return nil
+}
+
+// repoName returns the repository segment of a module address, without the
+// .git suffix: the last path segment, or what follows a scp-style colon.
+func repoName(address string) string {
+	return strings.TrimSuffix(address[strings.LastIndexAny(address, "/:")+1:], ".git")
+}
+
 // awsModule reports whether a collapsed module source is evidently AWS: a
 // registry address whose provider segment is aws (namespace/name/aws, optionally
 // behind a registry hostname), or a repository named terraform-aws-*.
 func awsModule(src string) bool {
-	src, _, _ = strings.Cut(src, "?")
-	// Set any URL scheme aside so that "//" marks only a subdirectory.
-	remote := false
-	if i := strings.Index(src, "://"); i >= 0 {
-		src, remote = src[i+3:], true
+	address, _, remote := moduleAddress(src)
+	if parts := registryParts(address, remote); parts != nil && parts[2] == "aws" {
+		return true
 	}
-	address, _, _ := strings.Cut(src, "//")
-	if !remote && !strings.Contains(address, ":") {
-		parts := strings.Split(address, "/")
-		namespace := len(parts) == 3 && !strings.Contains(parts[0], ".")
-		hosted := len(parts) == 4 && strings.Contains(parts[0], ".")
-		if (namespace || hosted) && parts[len(parts)-1] == "aws" {
-			return true
-		}
+	return strings.HasPrefix(repoName(address), "terraform-aws-")
+}
+
+// vpcModule reports whether a collapsed module source is the community AWS VPC
+// module itself, which is drawn as the VPC its siblings are placed inside.
+//
+// The match has to be exact. Testing for the substring "/terraform-aws-vpc"
+// also caught every sibling repository — terraform-aws-vpc-endpoints,
+// -vpc-peering, -vpc-flow-logs and the rest — and drew each of them as a VPC
+// that does not exist in the configuration, with synthetic subnet tiers
+// underneath it.
+//
+// A subdirectory disqualifies the source for the same reason: the endpoints
+// module is published as terraform-aws-modules/vpc/aws//modules/vpc-endpoints,
+// and that is an endpoint set, not a second VPC.
+func vpcModule(src string) bool {
+	address, subdir, remote := moduleAddress(src)
+	if subdir != "" {
+		return false
 	}
-	repo := address[strings.LastIndexAny(address, "/:")+1:]
-	return strings.HasPrefix(strings.TrimSuffix(repo, ".git"), "terraform-aws-")
+	if parts := registryParts(address, remote); parts != nil {
+		return parts[0] == "terraform-aws-modules" && parts[1] == "vpc" && parts[2] == "aws"
+	}
+	return repoName(address) == "terraform-aws-vpc"
 }
 
 // manifestKey converts module.a.module.b into the modules.json key a.b.
