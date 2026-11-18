@@ -108,3 +108,19 @@ func TestEmptyDataVPCIsPruned(t *testing.T) {
 		t.Fatal("--show-data hid a data VPC")
 	}
 }
+
+// A plan-only container whose only members are hidden must not survive as an
+// empty "Plan-only · placement unknown" box (docs/architecture.md: empty
+// synthetic containers are pruned).
+func TestEmptyPlanOnlyContainerIsPruned(t *testing.T) {
+	g := &graph.Graph{Nodes: map[string]*graph.Node{
+		"plan-only":         {ID: "plan-only", Type: "plan", Label: "Plan-only · placement unknown", Group: true},
+		"aws_iam_role.gone": {ID: "aws_iam_role.gone", Type: "aws_iam_role", Container: "plan-only"},
+	}}
+	if result := Apply(g, Options{}); result.Nodes["plan-only"] != nil {
+		t.Fatal("empty plan-only container survived pruning")
+	}
+	if result := Apply(g, Options{ShowIAM: true}); result.Nodes["plan-only"] == nil {
+		t.Fatal("plan-only container pruned while it still holds a visible resource")
+	}
+}

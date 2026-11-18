@@ -839,3 +839,24 @@ module "endpoints" {
 		t.Error("module.endpoints is a group; a sibling module is not a VPC container")
 	}
 }
+
+func TestInstalledModuleOutsideRootIsWarned(t *testing.T) {
+	g := graphFromFiles(t, map[string]string{
+		"main.tf": `
+provider "aws" { region = "eu-west-2" }
+module "shared" { source = "example/shared/aws" }
+`,
+		".terraform/modules/modules.json": `{"Modules":[{"Key":"","Dir":"."},{"Key":"shared","Dir":"../elsewhere"}]}`,
+	})
+	if !strings.Contains(strings.Join(g.Warnings, "\n"), "module shared: installed-module directory is outside the configuration root") {
+		t.Fatalf("no warning for a manifest directory outside the root: %q", g.Warnings)
+	}
+	inside := graphFromFiles(t, map[string]string{
+		"main.tf":                            `module "network" { source = "example/network/aws" }`,
+		".terraform/modules/modules.json":    `{"Modules":[{"Key":"network","Dir":".terraform/modules/network"}]}`,
+		".terraform/modules/network/main.tf": `resource "aws_vpc" "main" { cidr_block = "10.0.0.0/16" }`,
+	})
+	if strings.Contains(strings.Join(inside.Warnings, "\n"), "outside the configuration root") {
+		t.Fatalf("warned for a module inside the root: %q", inside.Warnings)
+	}
+}

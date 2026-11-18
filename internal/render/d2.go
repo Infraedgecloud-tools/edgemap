@@ -5,6 +5,7 @@ import (
 	"crypto/sha256"
 	"fmt"
 	"strings"
+	"unicode/utf8"
 
 	"github.com/Infraedgecloud-tools/edgemap/internal/graph"
 	"github.com/d2lang/d2/d2ast"
@@ -94,9 +95,14 @@ func Emit(g *graph.Graph, options Options) (string, error) {
 		}
 		out.WriteString("\n")
 	}
+	// near-positioned text does not widen the canvas, so a one-line legend is
+	// clipped on any diagram narrower than it. Each paragraph is wrapped to a
+	// width that fits the smallest diagrams edgemap draws.
 	legend := "Arrows: consumer → dependency; nesting replaces child → parent edges."
 	if options.Legend != "" {
-		legend += "\n" + options.Legend
+		legend = wrap(legend, legendWidth) + "\n" + wrap(options.Legend, legendWidth)
+	} else {
+		legend = wrap(legend, legendWidth)
 	}
 	fmt.Fprintf(&out, "legend: %s { shape: text; near: bottom-center }\n", quote(legend))
 	return out.String(), nil
@@ -104,4 +110,30 @@ func Emit(g *graph.Graph, options Options) (string, error) {
 
 func quote(value string) string {
 	return d2format.Format(&d2ast.DoubleQuotedString{Value: []d2ast.InterpolationBox{{String: &value}}})
+}
+
+// legendWidth is in characters: about 300 px at the legend's font size, which
+// fits inside the narrowest single-container diagram.
+const legendWidth = 44
+
+// wrap breaks text into lines of at most width runes at spaces, keeping any
+// word longer than width whole.
+func wrap(text string, width int) string {
+	var lines []string
+	line := ""
+	for _, word := range strings.Fields(text) {
+		if line != "" && utf8.RuneCountInString(line)+1+utf8.RuneCountInString(word) > width {
+			lines = append(lines, line)
+			line = word
+			continue
+		}
+		if line != "" {
+			line += " "
+		}
+		line += word
+	}
+	if line != "" {
+		lines = append(lines, line)
+	}
+	return strings.Join(lines, "\n")
 }

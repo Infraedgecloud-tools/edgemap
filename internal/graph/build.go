@@ -62,6 +62,11 @@ func Build(ctx context.Context, input source.Source, dir string) (*Graph, error)
 					if !filepath.IsAbs(p) {
 						p = filepath.Join(root, p)
 					}
+					// Not a sandbox (docs/architecture.md), but say so when the
+					// manifest sends a module outside the root being rendered.
+					if rel, err := filepath.Rel(root, p); err != nil || rel == ".." || strings.HasPrefix(rel, ".."+string(filepath.Separator)) {
+						b.graph.Warnings = append(b.graph.Warnings, fmt.Sprintf("module %s: installed-module directory is outside the configuration root", m.Key))
+					}
 					b.modules[m.Key] = p
 				}
 			}
