@@ -782,3 +782,60 @@ func TestAWSModuleSources(t *testing.T) {
 		}
 	}
 }
+
+func TestVPCModuleSources(t *testing.T) {
+	for src, want := range map[string]bool{
+		// The module itself, in each form it is written in.
+		"terraform-aws-modules/vpc/aws":                                            true,
+		"registry.terraform.io/terraform-aws-modules/vpc/aws":                      true,
+		"github.com/terraform-aws-modules/terraform-aws-vpc":                       true,
+		"git::https://github.com/terraform-aws-modules/terraform-aws-vpc.git":      true,
+		"git::https://github.com/terraform-aws-modules/terraform-aws-vpc?ref=v5.0": true,
+		"git@github.com:terraform-aws-modules/terraform-aws-vpc.git":               true,
+
+		// Sibling repositories. Each of these was drawn as a VPC of its own.
+		"github.com/terraform-aws-modules/terraform-aws-vpc-endpoints":  false,
+		"github.com/terraform-aws-modules/terraform-aws-vpc-peering":    false,
+		"github.com/terraform-aws-modules/terraform-aws-vpc-flow-logs":  false,
+		"git::https://github.com/acme/terraform-aws-vpc-cni.git?ref=v1": false,
+
+		// A subdirectory names something published inside the VPC module, not
+		// a second VPC.
+		"terraform-aws-modules/vpc/aws//modules/vpc-endpoints": false,
+
+		// Another provider's VPC, and an unrelated module from the same owner.
+		"terraform-google-modules/network/google":   false,
+		"terraform-aws-modules/eks/aws":             false,
+		"github.com/acme/terraform-aws-vpc-wrapper": false,
+	} {
+		if got := vpcModule(src); got != want {
+			t.Errorf("vpcModule(%q) = %v, want %v", src, got, want)
+		}
+	}
+}
+
+// A sibling module must not become a VPC container in the finished graph. The
+// substring match typed terraform-aws-vpc-endpoints as aws_vpc_module, so the
+// diagram showed a "VPC · endpoints" that the configuration never declared.
+func TestSiblingVPCModuleIsNotAVPCContainer(t *testing.T) {
+	g := graphFromFiles(t, map[string]string{"main.tf": `
+provider "aws" { region = "eu-west-2" }
+module "vpc" {
+  source = "terraform-aws-modules/vpc/aws"
+}
+module "endpoints" {
+  source = "github.com/terraform-aws-modules/terraform-aws-vpc-endpoints"
+}
+`})
+
+	if vpc := requireNode(t, g, "module.vpc"); vpc.Type != "aws_vpc_module" {
+		t.Errorf("module.vpc type = %q, want aws_vpc_module", vpc.Type)
+	}
+	endpoints := requireNode(t, g, "module.endpoints")
+	if endpoints.Type != "module" {
+		t.Errorf("module.endpoints type = %q, want module", endpoints.Type)
+	}
+	if endpoints.Group {
+		t.Error("module.endpoints is a group; a sibling module is not a VPC container")
+	}
+}
