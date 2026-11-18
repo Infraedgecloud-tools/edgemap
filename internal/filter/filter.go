@@ -89,7 +89,7 @@ func Apply(input *graph.Graph, options Options) *graph.Graph {
 		}
 		removed := false
 		for id, n := range result.Nodes {
-			synthetic := n.Type == "region" || n.Type == "other" || n.Type == "tier" || n.Type == "global"
+			synthetic := graph.Synthetic(n.Type)
 			if n.Group && (synthetic && !used[id] || n.Data && !options.ShowData && !contains[id]) {
 				delete(result.Nodes, id)
 				removed = true

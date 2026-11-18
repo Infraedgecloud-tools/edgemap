@@ -53,3 +53,15 @@ func (g *Graph) Ancestor(child, parent string) bool {
 	}
 	return false
 }
+
+// Synthetic reports whether a group type is one edgemap invents for layout —
+// regions, tiers, the global and other buckets, and the plan-only container —
+// rather than one that exists in the configuration. Empty synthetic groups are
+// pruned; this is the single list both pruning passes use.
+func Synthetic(groupType string) bool {
+	switch groupType {
+	case "region", "tier", "global", "other", "plan":
+		return true
+	}
+	return false
+}

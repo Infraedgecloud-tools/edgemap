@@ -113,7 +113,7 @@ func (b *builder) prune() {
 			used[n.Container] = true
 		}
 		for id, n := range b.graph.Nodes {
-			if n.Group && !used[id] && (n.Type == "tier" || n.Type == "region" || n.Type == "other") {
+			if n.Group && !used[id] && Synthetic(n.Type) {
 				delete(b.graph.Nodes, id)
 			}
 		}
